@@ -1,0 +1,868 @@
+/* ShopJoy - AppHeader */
+window.foAppHeader = {
+  name: 'FoAppHeader',
+  props: ['page', 'theme', 'appSidebarOpen', 'appMobileOpen', 'config', 'navigate',
+          'toggleTheme', 'appCartCount', 'appLikeCount', 'appAuth', 'onAppShowLogin', 'onAppLogout',
+          'appShowSettings', 'appShowApiLog', 'appApiLogs', 'appApiToast', 'isPageLoaded'],
+  emits: ['modu-fo-toggle-sidebar', 'modu-fo-toggle-mobile', 'modu-fo-toggle-settings', 'modu-fo-toggle-api-log', 'modu-fo-toggle-api-toast'],
+  setup(props, { emit }) {
+    // ===== [01] 초기 변수 정의 ====================================================
+    const { ref, reactive, computed, watch, onUnmounted, nextTick } = Vue;
+
+    /* ── UI 상태 ── */
+    const uiState = reactive({ userMenuOpen: false, profileOpen: false, pwOpen: false, loading: false, error: '' });
+    const codes = reactive({});
+    const userMenuRoot = ref(null);
+    const addrSearchModal = reactive({ show: false }); // 주소검색 모달 (카카오 우편번호, 인라인 레이어)
+
+    /* ── 설정 드롭다운: 링크공유/카카오공유/PDF (현재 화면 전체, document.body 캡처) ── */
+    const pdfExporting = ref(false);
+    /* cfCompareCount — 상품비교함 담긴 개수 (foAppBase.js window.foApp.compareList, reactive 공유) */
+    const cfCompareCount = computed(() => window.foApp?.compareList?.length || 0);
+    /* fnPublicShareUrl — 상품상세/이벤트상세/블로그상세처럼 백엔드 SEO 랜딩(FoSeoController,
+       /foui/{prodDtl,eventDtl,blogDtl}/{id})이 있는 화면이면 그 랜딩 URL(백엔드 포트, 크롤러/
+       카톡 미리보기가 실제 데이터를 읽을 수 있음)을, 그 외 화면(장바구니/주문/FAQ/개발도구 등
+       SEO 랜딩이 없는 화면)은 현재 프론트 URL(location.href) 그대로 반환한다.
+       링크복사·카카오공유·호버 미리보기(shareTip) 셋 다 이 값을 그대로 쓴다 — 값을 따로
+       계산하면 실제 클릭 시 동작과 어긋날 수 있어 계산 로직을 한 곳에만 둔다.
+       페이지별 id 파라미터 이름(prodid/eventId/dtlId)은 foAppBase.js 라우팅과 동일 기준.
+       2026-08-30 추가. */
+    /* FO_STATIC_SEO_PAGES — ID 없이 화면 자체로 고정되는 SEO 랜딩(FoSeoController, 2026-08-30
+       확장분). prodView/eventView/blogView 처럼 항목별 ID 가 필요한 화면은 아래에서 별도 분기. */
+    const FO_STATIC_SEO_PAGES = { home: 'home', prodList: 'prodList', contact: 'contact', faq: 'faq', event: 'event', blog: 'blog' };
+    const fnPublicShareUrl = () => {
+      const q = new URLSearchParams(window.location.search);
+      if (props.page === 'prodView' && q.get('prodid')) {
+        return window.seoUrl('/foui/prodDtl/' + encodeURIComponent(q.get('prodid')));
+      }
+      if (props.page === 'eventView' && q.get('eventId')) {
+        return window.seoUrl('/foui/eventDtl/' + encodeURIComponent(q.get('eventId')));
+      }
+      if (props.page === 'blogView' && q.get('dtlId')) {
+        return window.seoUrl('/foui/blogDtl/' + encodeURIComponent(q.get('dtlId')));
+      }
+      if (FO_STATIC_SEO_PAGES[props.page]) {
+        return window.seoUrl('/foui/' + FO_STATIC_SEO_PAGES[props.page]);
+      }
+      return window.location.href;
+    };
+    const handleShareKakao = () => {
+      try {
+        window.coExtSdk.shareKakao({
+          // 2026-08-30 버그수정: document.title 이 이미 "{화면명} - ShopJoy" 형태라(foAppBase.js
+          // FO_PAGE_TITLES) 여기서 또 ' - ShopJoy' 를 붙이면 "FAQ - ShopJoy - ShopJoy" 로 중복됐다.
+          title: document.title || 'ShopJoy - 쇼핑의 즐거움',
+          imageUrl: window.location.origin + '/assets/img/shopjoy-share-og.png',
+          url: fnPublicShareUrl(),
+        });
+      } catch (e) {
+        window.foApp?.showToast?.(e.message || '카카오톡 공유를 열 수 없습니다.', 'error', 0);
+      }
+    };
+    const handleCopyLink = async () => {
+      try {
+        await navigator.clipboard.writeText(fnPublicShareUrl());
+        window.foApp?.showToast?.('링크가 복사되었습니다.', 'success');
+      } catch (e) {
+        window.foApp?.showToast?.(e.message || '링크 복사에 실패했습니다.', 'error', 0);
+      }
+    };
+    /* shareTip — 링크공유/카카오공유 아이콘에 마우스오버 시 실제로 넘어가는 값을 미리 보여주는
+       레이어. kind: 'link'|'kakao'|null. 클릭 시 실행되는 handleCopyLink/handleShareKakao 와
+       완전히 같은 값(fnPublicShareUrl)을 그대로 보여준다. 2026-08-30 추가. */
+    const shareTip = reactive({ kind: null, title: '', url: '', imageUrl: '' });
+    const showShareTip = (kind) => {
+      shareTip.kind = kind;
+      shareTip.url = fnPublicShareUrl();
+      if (kind === 'kakao') {
+        shareTip.title = document.title || 'ShopJoy - 쇼핑의 즐거움';
+        shareTip.imageUrl = window.location.origin + '/assets/img/shopjoy-share-og.png';
+      }
+    };
+    const hideShareTip = () => { shareTip.kind = null; };
+
+    /* devTip — "(개발) 값적용" [1][2][3] 버튼에 마우스오버 시 그 프리셋에 실제로 뭐가
+       들어있는지 "항목명:항목값" 목록으로 보여주는 레이어(요청사항: "번호에 마우스 오버하면
+       설정된 항목명:항목값 정보 보여줘"). null = 안 보임, 1~3 = 그 프리셋 번호.
+       2026-09-06 버그수정(요청사항: "값적용 이 가려보이네") — 이 드롭다운(설정⚙) 자체가
+       둥근 모서리를 위해 overflow:hidden 인데, 처음엔 이 툴팁을 버튼의 부모(그 dropdown
+       내부) 기준 position:absolute 로 띄웠더니 dropdown 박스 밖으로 나가는 부분이 그대로
+       잘려서 보였다. <Teleport to="body"> 로 완전히 밖에 그리고, position:fixed + 버튼의
+       실제 화면 좌표(getBoundingClientRect)로 위치를 계산해서 잘림 없이 보이게 한다. */
+    const devTip = ref(null);
+    const devTipPos = reactive({ top: 0, left: 0 });
+    const DEV_FIELD_LABELS = { name: '이름', tel: '연락처', email: '이메일', postcode: '우편번호', address: '주소', addressDetail: '상세주소' };
+    const fnDevPresetEntries = (n) => {
+      const preset = coUtil.cofDevTestPresets[(n || 1) - 1] || {};
+      return Object.keys(DEV_FIELD_LABELS)
+        .filter((k) => preset[k] != null && preset[k] !== '')
+        .map((k) => ({ label: DEV_FIELD_LABELS[k], value: preset[k] }));
+    };
+    const showDevTip = (n, evt) => {
+      const r = evt.currentTarget.getBoundingClientRect();
+      devTipPos.top = r.top;                       // 버튼 위쪽에 붙이고 CSS translateY(-100%)로 뒤집어 올림
+      devTipPos.left = Math.min(Math.max(r.left + r.width / 2, 130), window.innerWidth - 130); // 화면 좌우 밖으로 안 나가게 clamp
+      devTip.value = n;
+    };
+    const hideDevTip = () => { devTip.value = null; };
+    const handleExportPdf = async () => {
+      pdfExporting.value = true;
+      try {
+        const filename = coUtil.cofBuildExportFilename((document.title || '화면') + '.pdf');
+        const curUser = (window.sfGetFoAuthUser ? window.sfGetFoAuthUser() : null) || {};
+        await coUtil.cofExportPdf(document.body, filename, window.foApp?.showToast, curUser);
+      } finally {
+        pdfExporting.value = false;
+      }
+    };
+
+    /* ── Profile 모달 ── */
+    const pf = reactive({ memberNm: '', email: '', phone: '', birthdate: '', gender: '',
+                          postcode: '', address: '', addressDetail: '' });
+
+    /* ── 비밀번호 변경 모달 ── */
+    const pw = reactive({ current: '', next: '', next2: '', err: '', ok: false });
+
+    // ===== [02] 액션 모음 (dispatch) ==============================================
+
+    /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
+    const handleBtnAction = (cmd, param = {}) => {
+      console.log(' ■■ foAppHeader.js : handleBtnAction -> ', cmd, param);
+      // 모바일 사이드바 토글
+      if (cmd === 'sidebar-toggle-mobile') {
+        return emit('modu-fo-toggle-mobile');
+      // 데스크탑 사이드바 토글
+      } else if (cmd === 'sidebar-toggle-desktop') {
+        return emit('modu-fo-toggle-sidebar');
+      // 설정 드롭다운 토글
+      } else if (cmd === 'settings-toggle') {
+        return emit('modu-fo-toggle-settings');
+      // API 로그 패널 토글
+      } else if (cmd === 'settings-toggle-api-log') {
+        return emit('modu-fo-toggle-api-log');
+      // API 응답 toast 출력 토글
+      } else if (cmd === 'settings-toggle-api-toast') {
+        return emit('modu-fo-toggle-api-toast');
+      // 링크 공유(URL만)
+      } else if (cmd === 'settings-copy-link') {
+        return handleCopyLink();
+      // 카카오톡 공유
+      } else if (cmd === 'settings-share-kakao') {
+        return handleShareKakao();
+      // 현재 화면 PDF 다운로드
+      } else if (cmd === 'settings-export-pdf') {
+        return handleExportPdf();
+      // (개발) 값적용 — 전역 이벤트로 현재 화면 폼에 프리셋 값 채우기(coUtil.js 참조)
+      } else if (cmd === 'dev-apply-values') {
+        return coUtil.cofDispatchDevAutofill(param);
+      // 사용자 메뉴 드롭다운 토글
+      } else if (cmd === 'userMenu-toggle') {
+        return toggleUserMenu();
+      // 사용자 메뉴 닫기
+      } else if (cmd === 'userMenu-close') {
+        return closeUserMenu();
+      // 로그인 모달 열기
+      } else if (cmd === 'nav-show-login') {
+        return props.onAppShowLogin();
+      // 로그아웃
+      } else if (cmd === 'userMenu-logout') {
+        return doLogout();
+      // 홈 이동
+      } else if (cmd === 'nav-go-home') {
+        return props.navigate('home');
+      // 좋아요(위시리스트) 이동
+      } else if (cmd === 'nav-go-like') {
+        props.navigate('like');
+        return closeUserMenu();
+      // 상품비교 — 상품목록으로 이동(비교함은 그 화면 플로팅 버튼에서 확인)
+      } else if (cmd === 'nav-go-prodList') {
+        props.navigate('prodList');
+        return handleBtnAction('settings-toggle');
+      // 장바구니 이동
+      } else if (cmd === 'cart-go') {
+        props.navigate('cart');
+        return closeUserMenu();
+      // 테마 토글
+      } else if (cmd === 'theme-toggle') {
+        return props.toggleTheme();
+      // 사이트번호 배지 클릭 → 메뉴 바로가기 모달
+      } else if (cmd === 'siteSwitch-open-quick-menu') {
+        return window.dispatchEvent(new CustomEvent('open-quick-menu'));
+      // 프로필 모달 열기
+      } else if (cmd === 'profile-open') {
+        return openProfile();
+      // 프로필 모달 닫기
+      } else if (cmd === 'profile-close') {
+        uiState.profileOpen = false;
+        return;
+      // 프로필 저장
+      } else if (cmd === 'profile-save') {
+        return saveProfile();
+      // 주소 검색 모달 열기 (카카오 우편번호, 인라인 레이어)
+      } else if (cmd === 'profile-search-addr') {
+        addrSearchModal.show = true;
+        return;
+      // 비밀번호 변경 모달 열기
+      } else if (cmd === 'pw-open') {
+        return openPw();
+      // 비밀번호 변경 모달 닫기
+      } else if (cmd === 'pw-close') {
+        uiState.pwOpen = false;
+        return;
+      // 비밀번호 변경 저장
+      } else if (cmd === 'pw-save') {
+        return savePw();
+      } else {
+        console.warn('[handleBtnAction] unknown cmd:', cmd);
+      }
+    };
+
+    /* handleSelectAction — 메뉴/탭 선택 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
+    const handleSelectAction = (cmd, param = {}) => {
+      console.log(' ■■ foAppHeader.js : handleSelectAction -> ', cmd, param);
+      // 상단 네비게이션 메뉴 선택
+      if (cmd === 'nav-select-menu') {
+        return props.navigate(param);
+      // 사용자 드롭다운 항목 선택
+      } else if (cmd === 'userMenu-select-item') {
+        return param.action && param.action();
+      // 성별 라디오 선택
+      } else if (cmd === 'profile-select-gender') {
+        pf.gender = param;
+        return;
+      } else {
+        console.warn('[handleSelectAction] unknown cmd:', cmd);
+      }
+    };
+
+    // ===== [04] 내장 사용 함수 (이벤트 핸들러 on* / handle*) ====================
+
+    /* toggleUserMenu — 사용자 메뉴 토글 */
+    const toggleUserMenu = () => { uiState.userMenuOpen = !uiState.userMenuOpen; };
+
+    /* closeUserMenu — 사용자 메뉴 닫기 */
+    const closeUserMenu  = () => { uiState.userMenuOpen = false; };
+
+    /* goMy — 마이페이지 */
+    const goMy    = () => { closeUserMenu(); props.navigate('myOrder'); };
+
+    /* doLogout — 로그아웃 */
+    const doLogout = () => { closeUserMenu(); props.onAppLogout(); };
+
+    /* openProfile — 프로필 열기 */
+    const openProfile = () => {
+      closeUserMenu();
+      const u = props.appAuth.user || {};
+      pf.memberNm = u.memberNm || ''; pf.email = u.email || ''; pf.phone = u.phone || '';
+      pf.birthdate = u.birthdate || ''; pf.gender = u.gender || '';
+      pf.postcode = u.postcode || ''; pf.address = u.address || '';
+      pf.addressDetail = u.addressDetail || '';
+      uiState.profileOpen = true;
+    };
+
+    /* saveProfile — 저장 */
+    const saveProfile = () => {
+      if (!pf.memberNm.trim()) { return; }
+      const u = props.appAuth.user;
+      if (u) {
+        Object.assign(u, {
+          memberNm: pf.memberNm, phone: pf.phone, birthdate: pf.birthdate, gender: pf.gender,
+          postcode: pf.postcode, address: pf.address, addressDetail: pf.addressDetail,
+        });
+        /* Pinia store 에도 반영 */
+        try {
+          const store = window.useFoAuthStore(Pinia.getActivePinia());
+          store.svAuthUser = { ...u };
+          localStorage.setItem('modu-fo-auth-authUser', JSON.stringify(store.svAuthUser));
+        } catch (e) {}
+      }
+      uiState.profileOpen = false;
+    };
+
+    /* fnCallbackModal — 모달 콜백 통합 dispatch. cmd=모달명, param=호출 파라미터, result=응답 결과 (null=닫기) */
+    const fnCallbackModal = (popCmd, param, result) => {
+      if (popCmd === 'addr-search') {
+        addrSearchModal.show = false;
+        if (result == null) { return; }
+        pf.postcode = result.zonecode;
+        pf.address  = result.address;
+        return;
+      }
+    };
+
+    /* genderLabel — gender 라벨 */
+    const genderLabel = g => ({ M: '남성', F: '여성', '': '선택안함' }[g] ?? '선택안함');
+
+    /* openPw — 비밀번호 변경 열기 */
+    const openPw = () => { closeUserMenu(); pw.current=''; pw.next=''; pw.next2=''; pw.err=''; pw.ok=false; uiState.pwOpen=true; };
+
+    /* savePw — 저장 */
+    const savePw = async () => {
+      pw.err = ''; pw.ok = false;
+      if (!pw.current) { pw.err = '현재 비밀번호를 입력하세요.'; return; }
+      if (pw.next.length < 6) { pw.err = '새 비밀번호는 6자 이상이어야 합니다.'; return; }
+      if (pw.next !== pw.next2) { pw.err = '새 비밀번호가 일치하지 않습니다.'; return; }
+      try {
+        await coApiSvc.foAuth.changePassword({
+          currentPassword: pw.current,
+          newPassword: pw.next,
+        }, '비밀번호변경', '변경');
+        pw.ok = true;
+        setTimeout(() => { uiState.pwOpen = false; }, 1400);
+      } catch (e) {
+        pw.err = e.response?.data?.message || '비밀번호 변경 실패';
+      }
+    };
+
+    /* ── 안전한 사용자 정보 접근 ── */
+    const cfAuthUser = computed(() => props?.appAuth?.user || { authNm: '', memberNm: '', email: '' });
+    const cfUserFirstChar = computed(() => ((cfAuthUser.value?.authNm || cfAuthUser.value?.memberNm || '').charAt(0)) || '?');
+    const cfIsLogin = computed(() => !!(props?.appAuth?.user?.authId));
+
+    /* ── 공통 인풋 스타일 ── */
+    const IS = 'width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:0.88rem;outline:none;';
+
+    /* ── 드롭다운 메뉴 항목 (정적 배열 — computed 불필요) ── */
+    const cfMenuItems = [
+      { icon: '👤', label: '마이페이지',    action: goMy,         color: 'var(--text-primary)' },
+      { icon: '✏️', label: '프로필 수정',   action: openProfile,  color: 'var(--text-primary)' },
+      { icon: '🔑', label: '비밀번호 변경', action: openPw,       color: 'var(--text-primary)' },
+    ];
+
+    /* 레이어 바깥 클릭 시 닫기 (고정 오버레이는 헤더 z-index 안에 묶여 형제 요소·본문보다 아래로 가는 경우가 있음) */
+    let removeUserMenuOutside = null;
+    function unbindUserMenuOutside() {
+      if (removeUserMenuOutside) {
+        removeUserMenuOutside();
+        removeUserMenuOutside = null;
+      }
+    }
+    function bindUserMenuOutside() {
+      unbindUserMenuOutside();
+
+      /* onPointerDown — 이벤트 */
+      const onPointerDown = (e) => {
+        if (!uiState.userMenuOpen) { return; }
+        const root = userMenuRoot.value;
+        if (root && !root.contains(e.target)) { closeUserMenu(); }
+      };
+      document.addEventListener('pointerdown', onPointerDown, true);
+      removeUserMenuOutside = () => document.removeEventListener('pointerdown', onPointerDown, true);
+    }
+    watch(() => uiState.userMenuOpen, (open) => {
+      if (open) { nextTick(() => bindUserMenuOutside()); }
+      else { unbindUserMenuOutside(); }
+    });
+    onUnmounted(() => unbindUserMenuOutside());
+
+    const cfTopMenu = computed(() => window.sfGetFoMenuStore?.()?.svTopMenu || []);
+    /* fnIsLoaded — lazy-load(2026-08-30) 전이면 메뉴명을 흐리게 표시(bo.html 좌측메뉴와 동일 취지) */
+    const fnIsLoaded = (menuId) => (props.isPageLoaded ? props.isPageLoaded(menuId) : true);
+
+    // ===== [06] return (템플릿 노출) ==============================================
+
+    return {
+      uiState, codes, userMenuRoot, addrSearchModal,                        // 상태 / refs
+      handleBtnAction, handleSelectAction, fnCallbackModal,                 // dispatch
+      pdfExporting, cfCompareCount,                                        // 링크/카카오공유/PDF (설정 드롭다운) / 상품비교 개수
+      shareTip, showShareTip, hideShareTip,                                // 공유 아이콘 호버 시 실제 전달값 미리보기 레이어
+      devTip, devTipPos, fnDevPresetEntries, showDevTip, hideDevTip,        // (개발) 값적용 버튼 호버 시 프리셋 내용 미리보기(Teleport)
+      pf, pw, IS, cfMenuItems, genderLabel,                                 // 프로필/비번/입력
+      cfAuthUser, cfUserFirstChar, cfIsLogin, cfTopMenu, fnIsLoaded,        // computed - 인증/메뉴
+      foSiteNo: window.FO_SITE_NO || '01',
+      boSiteNo: '01', /* BO site_no — FO localStorage 접근 금지, 기본값 고정 */
+      cfFoActive: computed(() => window.useFoAppStore?.()?.svActive || '-'),
+    };
+  },
+
+  template: /* html */ `
+<header class="glass" style="height:var(--header-h,60px);min-height:60px;flex-shrink:0;display:flex;align-items:center;padding:0 20px;gap:14px;position:sticky;top:0;z-index:50;border-left:none;border-right:none;border-top:none;">
+
+  <!-- ===== ■. Hamburger (mobile) ====================================== -->
+  <!-- ===== ■. 영역 ====================================================== -->
+  <button @click="handleBtnAction('sidebar-toggle-mobile')"
+    style="background:none;border:none;cursor:pointer;padding:6px;display:flex;flex-direction:column;gap:4px;flex-shrink:0;"
+    class="lg:hidden" aria-label="메뉴">
+    <span style="display:block;width:20px;height:2px;background:var(--text-primary);border-radius:2px;transition:all 0.25s;"></span>
+    <span style="display:block;width:20px;height:2px;background:var(--text-primary);border-radius:2px;transition:all 0.25s;"></span>
+    <span style="display:block;width:14px;height:2px;background:var(--text-primary);border-radius:2px;transition:all 0.25s;"></span>
+  </button>
+
+  <!-- ===== □. 영역 ====================================================== -->
+  <!-- ===== ■. Collapse toggle (desktop) =============================== -->
+  <!-- ===== ■. 영역 ====================================================== -->
+  <button @click="handleBtnAction('sidebar-toggle-desktop')"
+    style="background:none;border:none;cursor:pointer;padding:6px;display:none;align-items:center;color:var(--text-secondary);flex-shrink:0;"
+    class="hidden-sm" aria-label="사이드바 토글">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+
+  <!-- ===== □. 영역 ====================================================== -->
+  <!-- ===== ■. Logo ==================================================== -->
+  <!-- ===== ■. 영역 ====================================================== -->
+  <button @click="handleBtnAction('nav-go-home')" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;flex-shrink:0;padding:0;">
+    <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- ===== ■.■.■. 모래 ================================================== -->
+      <ellipse cx="30" cy="92" rx="22" ry="6" fill="#d4a017"/>
+      <ellipse cx="30" cy="92" rx="18" ry="4" fill="#e6b422"/>
+      <!-- ===== ■.■.■. 줄기 ================================================== -->
+      <path d="M30 90 Q25 60 35 30" stroke="#b8860b" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M30 90 Q25 60 35 30" stroke="#d4a017" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <!-- ===== ■.■.■. 잎 =================================================== -->
+      <path d="M35 30 Q55 10 75 18" stroke="#228B22" stroke-width="2.5" fill="none"/>
+      <path d="M35 30 Q60 15 78 25" stroke="#2d8f2d" stroke-width="2" fill="none"/>
+      <path d="M35 30 Q50 5 70 8" stroke="#1a7a1a" stroke-width="2.5" fill="none"/>
+      <path d="M35 30 Q20 8 5 15" stroke="#228B22" stroke-width="2.5" fill="none"/>
+      <path d="M35 30 Q15 12 3 22" stroke="#2d8f2d" stroke-width="2" fill="none"/>
+      <path d="M35 30 Q25 5 10 5" stroke="#1a7a1a" stroke-width="2.5" fill="none"/>
+      <path d="M35 30 Q35 8 40 3" stroke="#228B22" stroke-width="2" fill="none"/>
+      <!-- ===== ■.■.■. 열매 ================================================== -->
+      <circle cx="40" cy="34" r="5" fill="#8B008B"/>
+      <circle cx="48" cy="38" r="5" fill="#dc2626"/>
+      <circle cx="44" cy="44" r="5" fill="#2563eb"/>
+      <circle cx="35" cy="40" r="4.5" fill="#7c3aed"/>
+      <circle cx="52" cy="32" r="4" fill="#dc2626"/>
+      <circle cx="50" cy="46" r="4" fill="#2563eb"/>
+      <!-- ===== ■.■.■. 하이라이트 =============================================== -->
+      <circle cx="38" cy="32" r="1.5" fill="rgba(255,255,255,0.4)"/>
+      <circle cx="46" cy="36" r="1.5" fill="rgba(255,255,255,0.4)"/>
+      <circle cx="42" cy="42" r="1.5" fill="rgba(255,255,255,0.4)"/>
+    </svg>
+    <div style="display:flex;flex-direction:column;line-height:1.1;text-align:left;">
+      <!-- ===== ■.■.■. 영역 ================================================== -->
+      <span style="font-size:0.95rem;font-weight:800;color:var(--text-primary);letter-spacing:-0.3px;">{{ config.name }}</span>
+      <span style="font-size:0.6rem;color:var(--text-muted);font-weight:500;letter-spacing:0.08em;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        {{ config.tagline }}
+        <span class="fo-site-badge"
+          :title="'FO_SITE_NO=' + (foSiteNo || '-') + ' BO_SITE_NO=' + (boSiteNo || '-') + ' — 클릭: 메뉴 바로가기'"
+          :data-tip="'FO_SITE_NO=' + (foSiteNo || '-') + ' BO_SITE_NO=' + (boSiteNo || '-')"
+          style="cursor:pointer;"
+          @click.stop="handleBtnAction('siteSwitch-open-quick-menu')">
+          <span :style="{fontWeight:800,marginLeft:'4px',color: foSiteNo==='03' ? '#7b1fa2' : foSiteNo==='02' ? '#2e7d6b' : foSiteNo==='9999' ? '#888' : '#9f2946'}">{{ foSiteNo || '-' }}</span>
+          <span :style="{fontWeight:800,marginLeft:'3px',color: boSiteNo==='03' ? '#7b1fa2' : boSiteNo==='02' ? '#2e7d6b' : boSiteNo==='9999' ? '#888' : '#9f2946'}">{{ boSiteNo || '-' }}</span>
+        </span>
+        <span
+          :title="'active=' + cfFoActive"
+          :style="{
+            fontFamily:'monospace', fontSize:'9px', fontWeight:700, padding:'0px 5px',
+            borderRadius:'3px', border:'1px solid',
+            color: cfFoActive==='prod'?'#fff':cfFoActive==='dev'?'#1565c0':cfFoActive==='local'?'#7a5800':'#555',
+            background: cfFoActive==='prod'?'#e53935':cfFoActive==='dev'?'#e3f0fb':cfFoActive==='local'?'#fff59d':'#f0f0f0',
+            borderColor: cfFoActive==='prod'?'#c62828':cfFoActive==='dev'?'#90caf9':cfFoActive==='local'?'#f9a825':'#ccc',
+          }">{{ cfFoActive }}</span>
+      </span>
+    </div>
+  </button>
+
+  <!-- ===== □. 영역 ====================================================== -->
+  <!-- ===== ■. Top nav ================================================= -->
+  <!-- ===== ■. 영역 ====================================================== -->
+  <nav style="flex:1;display:flex;align-items:center;gap:2px;overflow-x:auto;padding:0 8px;scrollbar-width:none;">
+    <template v-for="m in cfTopMenu" :key="m.menuId">
+      <!-- ===== ■.■.■. Site 01은 disp UI 샘플 메뉴 숨김 (samples는 01 에서 제외) ======= -->
+      <template v-if="foSiteNo==='01' ? ((m.menuId ? ((m.menuId.startsWith('dispUi') || m.menuId==='divider-disp')) : false)) : false"></template>
+      <span v-else-if="m.type==='divider'" style="color:var(--border);padding:0 6px;font-size:1rem;user-select:none;">|</span>
+      <button v-else @click="handleSelectAction('nav-select-menu', m.menuId)" class="nav-link" :class="{active: page===m.menuId, 'nav-link-not-loaded': !fnIsLoaded(m.menuId)}">
+        <span>{{ m.menuNm }}</span>
+      </button>
+    </template>
+  </nav>
+
+  <!-- ===== □. 영역 ====================================================== -->
+  <!-- ===== ■. 우측: 로그인/유저 → 테마 순 ======================================= -->
+  <!-- ===== ■. 본문 영역 =================================================== -->
+  <!-- 2026-09-06 버그수정(요청사항: "모바일 모드로 보면 fo 화면 이상해... 상단에 버튼들
+       삐져나왔고") — 이 클러스터에 hidden-sm/lg:hidden 류 반응형 처리가 전혀 없어서 모바일
+       폭에서 아이콘 7~8개가 한 줄에 그대로 다 그려지며 화면 밖으로 넘쳤다. 그중 우선순위가
+       낮은 4개(테마토글/링크공유/카카오공유/PDF)는 .fo-header-actions 스코프로 모바일에서만
+       숨기고(fo-global-style0N.css @media max-width:767px), 대신 아래 설정(⚙) 드롭다운
+       안에 항목으로 추가해서 기능 자체는 그대로 유지한다. -->
+  <div class="fo-header-actions" style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
+
+    <!-- ===== ■.■. 🔔 알림 종 (회원에게 온 알림 + 오류정보 누적) — 로그인 시에만 ==== -->
+    <co-noti-bell v-if="cfIsLogin" ctx="fo" :navigate="navigate" />
+
+    <!-- ===== ■.■. 비로그인 ================================================== -->
+    <button v-if="!cfIsLogin" @click="handleBtnAction('nav-show-login')"
+      style="padding:7px 16px;border:1.5px solid var(--blue);border-radius:20px;background:transparent;color:var(--blue);cursor:pointer;font-size:0.82rem;font-weight:700;white-space:nowrap;transition:all 0.2s;"
+      @mouseenter="$event.target.style.background='var(--blue)';$event.target.style.color='#fff';"
+      @mouseleave="$event.target.style.background='transparent';$event.target.style.color='var(--blue)';">
+      로그인
+    </button>
+
+    <!-- ===== □.□. 비로그인 ================================================== -->
+    <!-- ===== ■.■. 로그인 상태 ================================================ -->
+    <div v-else ref="userMenuRoot" style="position:relative;">
+      <button type="button" @click="handleBtnAction('userMenu-toggle')"
+        style="display:flex;align-items:center;gap:8px;padding:6px 12px;border:1.5px solid var(--border);border-radius:20px;background:var(--bg-card);cursor:pointer;font-size:0.82rem;color:var(--text-primary);font-weight:600;">
+        <span style="width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;">
+          {{ cfUserFirstChar }}
+        </span>
+        <span class="hidden-sm" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cfAuthUser.authNm || cfAuthUser.memberNm }}</span>
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"
+          :style="uiState.userMenuOpen?'transform:rotate(180deg);transition:0.2s;':'transition:0.2s;'"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+
+      <!-- ===== ■.■.■. 드롭다운 ================================================ -->
+      <div v-if="uiState.userMenuOpen" @click.stop
+        style="position:absolute;right:0;top:calc(100% + 8px);width:196px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 28px rgba(0,0,0,0.13);z-index:100;overflow:hidden;">
+        <!-- ===== ■.■.■.■. 사용자 정보 ============================================ -->
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--green));color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:800;flex-shrink:0;">
+              {{ cfUserFirstChar }}
+            </span>
+            <div style="min-width:0;">
+              <div style="font-size:0.88rem;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cfAuthUser.authNm || cfAuthUser.memberNm }}</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cfAuthUser.email }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== ■.■.■.■. 메뉴 항목 ============================================= -->
+        <!-- ===== ■.■.■.■. 영역 ================================================ -->
+        <div style="padding:4px 0;">
+          <button v-for="item in cfMenuItems" :key="item.label" @click="handleSelectAction('userMenu-select-item', item)"
+            style="width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;text-align:left;font-size:0.86rem;display:flex;align-items:center;gap:9px;transition:background 0.15s;"
+            :style="'color:'+item.color"
+            @mouseenter="$event.currentTarget.style.background='var(--blue-dim)'"
+            @mouseleave="$event.currentTarget.style.background='transparent'">
+            <span style="font-size:1rem;width:18px;text-align:center;">{{ item.icon }}</span>
+            {{ item.label }}
+          </button>
+        </div>
+
+        <!-- ===== ■.■.■.■. 로그아웃 ============================================== -->
+        <div style="border-top:1px solid var(--border);padding:4px 0;">
+          <button @click="handleBtnAction('userMenu-logout')"
+            style="width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;text-align:left;font-size:0.86rem;color:#ef4444;display:flex;align-items:center;gap:9px;transition:background 0.15s;"
+            @mouseenter="$event.currentTarget.style.background='#fef2f2'"
+            @mouseleave="$event.currentTarget.style.background='transparent'">
+            <span style="font-size:1rem;width:18px;text-align:center;">🚪</span> 로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== □.□. 로그인 상태 ================================================ -->
+    <!-- ===== ■.■. 좋아요(위시리스트) 아이콘 ======================================== -->
+    <!-- ===== ■.■. 버튼 영역 ================================================= -->
+    <button type="button" @click="handleBtnAction('nav-go-like')"
+      style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card);cursor:pointer;flex-shrink:0;transition:border-color 0.2s,background 0.2s;"
+      title="위시리스트"
+      @mouseenter="$event.currentTarget.style.borderColor='var(--blue)';$event.currentTarget.style.background='var(--blue-dim)'"
+      @mouseleave="$event.currentTarget.style.borderColor='var(--border)';$event.currentTarget.style.background='var(--bg-card)'">
+      <span style="position:relative;display:flex;align-items:center;justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-secondary);">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        </svg>
+        <span v-if="appLikeCount > 0" class="header-cart-badge">{{ appLikeCount > 99 ? '99+' : appLikeCount }}</span>
+      </span>
+    </button>
+
+    <!-- ===== □.□. 버튼 영역 ================================================= -->
+    <!-- ===== ■.■. 장바구니: 아이콘 + 뱃지(개수) ==================================== -->
+    <button type="button" @click="handleBtnAction('cart-go')"
+      class="header-cart-link"
+      style="position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card);cursor:pointer;flex-shrink:0;transition:border-color 0.2s,background 0.2s;"
+      :aria-label="appCartCount > 0 ? ('장바구니, ' + (appCartCount > 99 ? '99개 이상' : appCartCount + '개') + ' 상품') : '장바구니, 비어 있음'"
+      title="장바구니">
+      <span class="header-cart-icon-wrap" style="position:relative;display:flex;align-items:center;justify-content:center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--blue);">
+          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+        </svg>
+        <span v-if="appCartCount > 0" class="header-cart-badge">{{ appCartCount > 99 ? '99+' : appCartCount }}</span>
+      </span>
+    </button>
+
+    <!-- ===== □.□. 장바구니: 아이콘 + 뱃지(개수) ==================================== -->
+    <!-- ===== ■.■. 테마 토글 (장바구니 오른쪽) ====================================== -->
+    <!-- ===== ■.■. 버튼 영역 ================================================= -->
+    <button class="theme-toggle" @click="handleBtnAction('theme-toggle')" :title="theme==='light'?'다크 모드로 전환':'라이트 모드로 전환'">
+      <span v-if="theme==='light'">🌙</span>
+      <span v-else>☀️</span>
+    </button>
+
+    <!-- ===== □.□. 버튼 영역 ================================================= -->
+    <!-- ===== ■.■. 설정 아이콘 ================================================ -->
+    <div data-fo-settings style="position:relative;flex-shrink:0;">
+      <button @click="handleBtnAction('settings-toggle')"
+        style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card);cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all 0.2s;"
+        :style="appShowSettings?'border-color:var(--accent,#c9a96e);background:var(--accent-dim,#fdf8f1);color:var(--accent,#c9a96e);':''"
+        title="설정">⚙</button>
+      <!-- ===== ■.■.■. 설정 드롭다운 ============================================= -->
+      <div v-if="appShowSettings"
+        style="position:absolute;right:0;top:calc(100% + 8px);width:220px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:200;overflow:hidden;padding:4px 0;">
+        <button @click="handleBtnAction('nav-go-prodList')"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background='transparent'">
+          <span style="font-size:13px;">⚖️</span>
+          <span>상품비교</span>
+          <span v-if="cfCompareCount" style="margin-left:auto;font-size:10px;background:#e8e8e8;border-radius:8px;padding:1px 5px;color:#666;">{{ cfCompareCount }}</span>
+        </button>
+        <button @click="handleBtnAction('settings-toggle-api-log')"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          :style="appShowApiLog?'background:var(--accent-dim,#fdf8f1);color:var(--accent,#c9a96e);font-weight:700;':''"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background=appShowApiLog?'var(--accent-dim,#fdf8f1)':'transparent'">
+          <span style="font-size:13px;">🌐</span>
+          <span>API 로그 보기</span>
+          <span v-if="appApiLogs ? (appApiLogs.length) : false" style="margin-left:auto;font-size:10px;background:#e8e8e8;border-radius:8px;padding:1px 5px;color:#666;">{{ appApiLogs.length }}</span>
+        </button>
+        <button @click="handleBtnAction('settings-toggle-api-toast')"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          :style="appApiToast?'background:var(--accent-dim,#fdf8f1);color:var(--accent,#c9a96e);font-weight:700;':''"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background=appApiToast?'var(--accent-dim,#fdf8f1)':'transparent'">
+          <span style="font-size:13px;">🔔</span>
+          <span>API 토스트 출력</span>
+          <span style="margin-left:auto;font-size:10px;border-radius:8px;padding:1px 6px;font-weight:700;" :style="appApiToast?'background:var(--accent,#c9a96e);color:#fff;':'background:#e8e8e8;color:#888;'">{{ appApiToast ? 'ON' : 'OFF' }}</span>
+        </button>
+        <!-- 2026-09-06(요청사항: "링크공유 pdf 저장 이런거로 인해 디자인 부자연스러우면 설정
+             안으로 넣어도 돼") — 모바일에서 숨긴 테마토글/링크공유/카카오공유/PDF 를 여기서도
+             그대로 실행 가능하게 함(데스크탑에서는 상단 아이콘과 중복되지만 무해). -->
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+        <button @click="handleBtnAction('theme-toggle')"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background='transparent'">
+          <span style="font-size:13px;">{{ theme==='light' ? '🌙' : '☀️' }}</span>
+          <span>{{ theme==='light' ? '다크 모드로 전환' : '라이트 모드로 전환' }}</span>
+        </button>
+        <!-- 2026-09-06(요청사항: "링크공유하기 상단에 구분선 넣어주고") -->
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+        <button @click="handleBtnAction('settings-copy-link')"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background='transparent'">
+          <span style="font-size:13px;">🔗</span>
+          <span>링크 공유(URL 복사)</span>
+        </button>
+        <button @click="handleBtnAction('settings-share-kakao')"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background='transparent'">
+          <span style="font-size:13px;">💬</span>
+          <span>카카오톡 공유</span>
+        </button>
+        <button @click="handleBtnAction('settings-export-pdf')" :disabled="pdfExporting"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background='transparent'">
+          <span style="font-size:13px;">{{ pdfExporting ? '⏳' : '📄' }}</span>
+          <span>PDF 다운로드</span>
+        </button>
+        <!-- 2026-09-06(요청사항: "제일 아래에 구분선 놓고 아래에 (개발) 값적용 [1][2][3] 버튼
+             추가해줘 / 이름 연락처 이메일 주소 등은 기본적으로 적용되게 해줘 / 화면마다
+             값적용 편하게 할거야 / 문의상담의 경우도 마찬가지지 / 번호에 마우스 오버하면
+             설정된 항목명:항목값 정보 보여줘") — 클릭하면 전역 'fo-dev-autofill' 이벤트를
+             쏘고(coUtil.cofDispatchDevAutofill), 주문서(Order.js)·문의상담(Contact.js) 등
+             폼이 있는 화면이 각자 구독해서 자기 폼 필드(name/tel/email/postcode/address/
+             addressDetail)를 채운다 — 헤더는 화면별 폼 구조를 몰라도 됨.
+             ⚠ 프리셋에 실제 개인정보(coUtil.js 참조)가 들어있어 운영(prod)에서는 이 UI 자체를
+             숨긴다(cfFoActive!=='prod') — 로그인 없이도 보이는 공개 헤더라 운영 노출은 막아야 함. -->
+        <template v-if="cfFoActive !== 'prod'">
+          <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+          <div style="padding:8px 14px 4px;font-size:11px;color:var(--text-muted);font-weight:700;">(개발) 값적용</div>
+          <div style="display:flex;gap:6px;padding:2px 14px 10px;">
+            <button v-for="n in [1,2,3]" :key="n" type="button" @click="handleBtnAction('dev-apply-values', n)"
+              @mouseenter="showDevTip(n, $event)" @mouseleave="hideDevTip"
+              style="flex:1;padding:6px 0;border:1.5px solid var(--border);border-radius:6px;background:var(--bg-base);color:var(--text-secondary);cursor:pointer;font-size:12px;font-weight:700;transition:all 0.15s;"
+              :style="devTip===n?'border-color:var(--blue);color:var(--blue);':''">
+              {{ n }}
+            </button>
+          </div>
+        </template>
+        <!-- devTip 미리보기 레이어는 이 dropdown(overflow:hidden) 밖으로 Teleport — 안에 두면
+             둥근 모서리 클리핑에 잘려서 잘 안 보였다(요청사항: "값적용 이 가려보이네"). -->
+        <Teleport to="body">
+          <div v-if="devTip"
+            :style="{ position:'fixed', top: devTipPos.top+'px', left: devTipPos.left+'px', transform:'translate(-50%,-100%) translateY(-6px)' }"
+            style="z-index:9999;min-width:220px;max-width:280px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);box-shadow:0 6px 20px rgba(0,0,0,0.14);font-size:12px;line-height:1.7;color:var(--text-secondary);text-align:left;white-space:normal;pointer-events:none;">
+            <div v-for="f in fnDevPresetEntries(devTip)" :key="f.label" style="word-break:break-all;"><b style="color:var(--text-primary);">{{ f.label }}</b>: {{ f.value }}</div>
+          </div>
+        </Teleport>
+      </div>
+    </div>
+
+    <!-- ===== □.□. 설정 아이콘 ================================================ -->
+    <!-- ===== ■.■. 링크복사 / 카카오공유 / PDF (최상단 우측 고정 아이콘) ============================ -->
+    <!-- 2026-08-30: 마우스오버 시 실제 전달값(shareTip) 미리보기 레이어 추가 — position:relative 로
+         감싸서 자식 레이어를 이 버튼 기준으로 절대배치한다. -->
+    <div style="position:relative;">
+      <!-- 2026-08-30: BO(boAppBase.js)와 동일하게 공용 클래스(.btn_link, bo/fo-global-style0N.css)
+           사용 — 색을 인라인으로 따로 정하지 않고 BO/FO 공통 CSS 한 곳에서만 관리한다. -->
+      <button type="button" class="btn_link" @click="handleBtnAction('settings-copy-link')"
+        @mouseenter="showShareTip('link')" @mouseleave="hideShareTip" title="링크 공유(URL만)">🔗</button>
+      <div v-if="shareTip.kind==='link'"
+        style="position:absolute;top:calc(100% + 6px);right:0;z-index:200;min-width:260px;max-width:360px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);box-shadow:0 6px 20px rgba(0,0,0,0.14);font-size:12px;line-height:1.6;color:var(--text-secondary);">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">🔗 전달값(클릭 시 클립보드로 복사)</div>
+        <div style="word-break:break-all;"><b>url</b> = {{ shareTip.url }}</div>
+      </div>
+    </div>
+    <div style="position:relative;">
+      <button type="button" class="btn_kakao" @click="handleBtnAction('settings-share-kakao')"
+        @mouseenter="showShareTip('kakao')" @mouseleave="hideShareTip" title="카카오톡 공유">💬</button>
+      <div v-if="shareTip.kind==='kakao'"
+        style="position:absolute;top:calc(100% + 6px);right:0;z-index:200;min-width:260px;max-width:360px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);box-shadow:0 6px 20px rgba(0,0,0,0.14);font-size:12px;line-height:1.6;color:var(--text-secondary);">
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">💬 전달값(window.coExtSdk.shareKakao 인자)</div>
+        <div style="word-break:break-all;"><b>title</b> = {{ shareTip.title }}</div>
+        <div style="word-break:break-all;"><b>url</b> = {{ shareTip.url }}</div>
+        <div style="word-break:break-all;"><b>imageUrl</b> = {{ shareTip.imageUrl }}</div>
+      </div>
+    </div>
+    <!-- 2026-08-30: BO 와 동일하게 .btn_pdf 공용 클래스 사용(색/크기 인라인 지정 제거) -->
+    <button type="button" class="btn_pdf" @click="handleBtnAction('settings-export-pdf')" title="PDF 다운로드" :disabled="pdfExporting">
+      <span v-if="pdfExporting">⏳</span>
+      <svg v-else width="18" height="20" viewBox="0 0 32 36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 2 H20 L28 10 V34 H4 Z" fill="#fff" stroke="#c2410c" stroke-width="1.5"/>
+        <path d="M20 2 V10 H28 Z" fill="#f3d4c0"/>
+        <rect x="2" y="20" width="28" height="12" rx="2" fill="#e2372c"/>
+        <text x="16" y="29" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#fff" text-anchor="middle">PDF</text>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ===== □. 본문 영역 =================================================== -->
+  <!-- ===== ■. ══ Profile 모달 ══ ======================================== -->
+  <!-- ===== ■. 영역 ====================================================== -->
+  <Teleport to="body">
+  <!-- ===== ■. 조건부 영역 ================================================== -->
+  <div v-if="uiState.profileOpen" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;" @click.self="handleBtnAction('profile-close')">
+    <div style="background:var(--bg-card);border-radius:var(--radius);width:100%;max-width:440px;max-height:88vh;overflow-y:auto;padding:28px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+      <button @click="handleBtnAction('profile-close')" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+
+      <div style="margin-bottom:22px;">
+        <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);">✏️ 프로필 수정</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">회원 정보를 수정하세요</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <!-- ===== ■.■.■.■. 이름 ================================================ -->
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">이름 <span style="color:var(--blue);">*</span></div>
+          <input v-model="pf.memberNm" :style="IS" placeholder="이름">
+        </div>
+        <!-- ===== ■.■.■.■. 이메일 (읽기전용) ======================================== -->
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">이메일</div>
+          <input v-model="pf.email" :style="IS.replace('var(--bg-card)','var(--bg-base)')" readonly style="cursor:default;">
+        </div>
+        <!-- ===== ■.■.■.■. 휴대폰 =============================================== -->
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">휴대폰</div>
+          <input v-model="pf.phone" :style="IS" placeholder="010-0000-0000">
+        </div>
+        <!-- ===== ■.■.■.■. 주소 ================================================ -->
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">주소</div>
+          <div style="display:flex;gap:8px;margin-bottom:6px;">
+            <input v-model="pf.postcode" placeholder="우편번호" readonly
+              style="width:100px;flex-shrink:0;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-base);color:var(--text-primary);font-size:0.85rem;cursor:default;outline:none;">
+            <button @click="handleBtnAction('profile-search-addr')" type="button"
+              style="padding:0 14px;border:1.5px solid var(--blue);border-radius:8px;background:var(--blue-dim);color:var(--blue);font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+              📮 주소 검색
+            </button>
+          </div>
+          <input v-model="pf.address" placeholder="도로명 주소" readonly
+            style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-base);color:var(--text-primary);font-size:0.85rem;cursor:default;outline:none;margin-bottom:6px;">
+          <input v-model="pf.addressDetail" :style="IS" placeholder="상세 주소 (동/호수 등)">
+        </div>
+        <!-- ===== ■.■.■.■. 생년월일 + 성별 ========================================= -->
+        <!-- ===== ■.■.■.■. 영역 ================================================ -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">생년월일</div>
+            <input v-model="pf.birthdate" type="date"
+              style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
+          </div>
+          <div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">성별</div>
+            <div style="display:flex;gap:5px;">
+              <button v-for="g in [{v:'M',l:'남'},{v:'F',l:'여'},{v:'',l:'미정'}]" :key="g.v"
+                @click="handleSelectAction('profile-select-gender', g.v)" type="button"
+                style="flex:1;padding:9px 2px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.15s;"
+                :style="pf.gender===g.v?'background:var(--blue);color:#fff;border:1.5px solid var(--blue);':'background:var(--bg-base);color:var(--text-secondary);border:1.5px solid var(--border);'">
+                {{ g.l }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:22px;">
+        <button @click="handleBtnAction('profile-close')"
+          style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:0.88rem;font-weight:600;">취소</button>
+        <button @click="handleBtnAction('profile-save')" :disabled="!pf.memberNm.trim()"
+          style="flex:2;padding:12px;border:none;border-radius:8px;background:var(--blue);color:#fff;cursor:pointer;font-size:0.88rem;font-weight:700;"
+          :style="!pf.memberNm.trim()?'opacity:0.5;cursor:not-allowed;':''">저장</button>
+      </div>
+    </div>
+  </div>
+  </Teleport>
+  <!-- ===== ■. 주소 검색 모달 (카카오 우편번호, 인라인 레이어) ============================ -->
+  <fo-addr-search-modal v-if="addrSearchModal.show" modal-name="addr-search" :on-callback="fnCallbackModal" />
+
+  <!-- ===== □. 조건부 영역 ================================================== -->
+  <!-- ===== ■. ══ 비밀번호 변경 모달 ══ ======================================== -->
+  <!-- ===== ■. 영역 ====================================================== -->
+  <Teleport to="body">
+  <!-- ===== ■. 조건부 영역 ================================================== -->
+  <div v-if="uiState.pwOpen" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;" @click.self="handleBtnAction('pw-close')">
+    <div style="background:var(--bg-card);border-radius:var(--radius);width:100%;max-width:400px;padding:28px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+      <button @click="handleBtnAction('pw-close')" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--text-muted);">✕</button>
+
+      <div style="margin-bottom:22px;">
+        <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);">🔑 비밀번호 변경</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">현재 비밀번호 확인 후 변경할 수 있습니다</div>
+      </div>
+
+      <!-- ===== ■.■.■. 성공 상태 =============================================== -->
+      <div v-if="pw.ok" style="text-align:center;padding:20px 0;">
+        <div style="font-size:2.5rem;margin-bottom:12px;">✅</div>
+        <div style="font-size:1rem;font-weight:700;color:#22c55e;">비밀번호가 변경되었습니다!</div>
+      </div>
+
+      <div v-else style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">현재 비밀번호</div>
+          <input v-model="pw.current" type="password" :style="IS" placeholder="현재 비밀번호 입력">
+        </div>
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">새 비밀번호 <span style="font-size:0.72rem;">(6자 이상)</span></div>
+          <input v-model="pw.next" type="password" :style="IS" placeholder="새 비밀번호 입력">
+        </div>
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">새 비밀번호 확인</div>
+          <input v-model="pw.next2" type="password" :style="IS" placeholder="새 비밀번호 재입력" @keyup.enter="handleBtnAction('pw-save')">
+        </div>
+
+        <!-- ===== ■.■.■.■. 비번 강도 표시 ========================================== -->
+        <!-- ===== ■.■.■.■. 조건부 영역 ============================================ -->
+        <div v-if="pw.next" style="display:flex;gap:4px;align-items:center;">
+          <div v-for="i in 4" :key="i" style="flex:1;height:3px;border-radius:2px;transition:background 0.2s;"
+            :style="i <= (pw.next.length<6?1:pw.next.length<8?2:pw.next.match(/[^a-zA-Z0-9]/)?4:3) ? 'background:var(--blue);' : 'background:var(--border);'"></div>
+          <span style="font-size:0.72rem;color:var(--text-muted);margin-left:6px;white-space:nowrap;">
+            {{ pw.next.length<6?'약함':pw.next.length<8?'보통':pw.next.match(/[^a-zA-Z0-9]/)?'강함':'양호' }}
+          </span>
+        </div>
+
+        <div v-if="pw.err" style="color:#ef4444;font-size:0.82rem;padding:8px 12px;background:#fef2f2;border-radius:6px;">{{ pw.err }}</div>
+
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <button @click="handleBtnAction('pw-close')"
+            style="flex:1;padding:12px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--text-secondary);cursor:pointer;font-size:0.88rem;font-weight:600;">취소</button>
+          <button @click="handleBtnAction('pw-save')"
+            style="flex:2;padding:12px;border:none;border-radius:8px;background:var(--blue);color:#fff;cursor:pointer;font-size:0.88rem;font-weight:700;">변경하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </Teleport>
+
+</header>
+
+  <!-- ===== □. 조건부 영역 ================================================== -->`,
+};
