@@ -1,12 +1,17 @@
 ## Netlify 빌드/배포 설정
 ## - Netlify 사이트의 "Base directory"가 ec_v26/shopjoy_v260406 로 설정돼 있다는 전제로,
 ##   이 파일도 그 폴더 안에 둔다(Netlify는 Base directory 안의 netlify.toml을 우선 읽음).
-## - command: package.json의 build 스크립트 = build:minify(esbuild 압축, dist/ 생성) → verify-dist(정합성 검증)
-##   verify-dist가 실패(exit 1)하면 빌드 자체가 실패 처리되어 배포되지 않음(안전장치).
+## - command: package.json의 build:prod 스크립트 = build:minify(--profile=prod, esbuild 압축, dist/ 생성)
+##   → verify-dist(정합성 검증). verify-dist가 실패(exit 1)하면 빌드 자체가 실패 처리되어 배포되지 않음(안전장치).
+## - ⚠ 2026-09-12: 예전엔 "npm run build"(=build:local 별칭)를 썼는데, 이게 local 프로파일
+##   (baseApiHost=window.location.hostname, port 3000)을 그대로 dist/에 구워 넣어서, Netlify에
+##   배포된 사이트(shopjoy-ecfebo.netlify.app)가 자기 자신의 :3000 포트를 API로 호출하다 타임아웃
+##   나는 사고가 있었다(운영 백엔드는 22300.illeesam.synology.me인데 전혀 다른 곳을 호출). 반드시
+##   build:prod로 prod 프로파일(lib/env/profiles/*.prod.js)을 구워 넣어야 한다.
 ## - publish: 압축 산출물 dist/ 를 실제 서비스 루트로 지정.
 
 [build]
-  command = "npm run build"
+  command = "npm run build:prod"
   publish = "dist"
 
 [build.environment]
