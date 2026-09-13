@@ -1,0 +1,76 @@
+window.SyTemplateMng={name:"SyTemplateMng",props:{navigate:{type:Function,required:!0},openNewWindow:{type:Function,default:()=>{}}},setup(y){const{ref:le,reactive:i,computed:P,watch:oe,onMounted:E}=Vue,d=window.boApp.showToast,S=window.boApp.showConfirm,m=i([]),_=i({}),n=i({loading:!1,error:null,selectedPath:null,sortKey:"",sortDir:"asc"}),b=i({template_type:[],use_yn:[],template_types:["\uBA54\uC77C\uD15C\uD50C\uB9BF","\uBB38\uC790\uD15C\uD50C\uB9BF","MMS\uD15C\uD50C\uB9BF","kakao\uD1A1\uD15C\uD50C\uB9BF","kakao\uC54C\uB9BC\uD1A1\uD15C\uD50C\uB9BF","\uC2DC\uC2A4\uD15C\uC54C\uB9BC","\uD68C\uC6D0\uC54C\uB9BC"],date_range_opts:[]}),M={nm:{asc:"templateNm asc",desc:"templateNm desc"},reg:{asc:"regDate asc",desc:"regDate desc"}},v=(e,t={})=>{if(e==="searchParam-list")return r.pageNo=1,g("DEFAULT");if(e==="searchParam-reset")return Object.assign(p,C),n.sortKey="",n.sortDir="asc",n.selectedPath=null,r.pageNo=1,h(),g("DEFAULT");if(e==="searchParam-dateRange")return B();if(e==="templates-add")return t&&(t.ctrlKey||t.metaKey||t.button===1)?y.openNewWindow("syTemplateDtl",null,"new"):F();if(e==="detailPanel-close")return q();if(e==="pathModal-close")return N();if(e==="previewModal-close"){f.show=!1;return}else if(e==="sendModal-close"){w.show=!1;return}else{if(e==="templates-sort")return O(t);if(e==="templates-pager-setPage"){t>=1&&t<=r.pageTotalPage&&(r.pageNo=t,g("PAGE_CLICK"));return}else console.warn("[handleBtnAction] unknown cmd:",e)}},I=(e,t={})=>{if(e==="pathTree-select")return n.selectedPath=t,r.pageNo=1,h(),g();if(e==="templates-pager-sizeChange")return r.pageNo=1,g("DEFAULT");if(e==="templates-rowPreview")return W(t);if(e==="templates-rowSend")return H(t);if(e==="pathModal-open")return U(t);if(e==="pathModal-pick")return k(t);console.warn("[handleSelectAction] unknown cmd:",e)},x=(e,t,o,s={})=>{if(e==="templates-cellClick"){if(t==="btn_row_edit")return s&&(s.ctrlKey||s.metaKey||s.button===1)?y.openNewWindow("syTemplateDtl",o.templateId,"edit"):$(o.templateId);if(t==="btn_row_delete")return J(o);const a=["__no__"];if(s.col&&s.col.link||a.includes(t))return s.ctrlKey||s.metaKey||s.button===1?y.openNewWindow("syTemplateDtl",o.templateId):z(o.templateId)}else console.warn("[handleGridCellAction] unknown cmd:",e)},G=(e,t,o)=>{if(e==="cmPopup-path-pick"){if(o==null){N();return}return k(o)}else if(e==="template-preview"){if(o==null){f.show=!1;return}return}else if(e==="template-send"){if(o==null){w.show=!1;return}return}else console.warn("[fnCallbackModal] unknown popCmd:",e)},p=i({searchType:"",searchValue:"",templateTypeCd:"",useYn:"",dateRange:"",dateRangeType:"",dateRangeStart:"",dateRangeEnd:""}),C={},r=i({pageType:"PAGE",pageNo:1,pageSize:5,pageTotalCount:0,pageTotalPage:1,pageSizes:[5,10,20,30,50,100,200,500],pageCond:{}}),u=i({show:!1,row:null}),l=i({selectedId:"__new__",openMode:"view",reloadTrigger:0,resetSeq:0,active:!1}),f=i({show:!1,template:null}),w=i({show:!1,template:null}),L=P(()=>boUtil.bofGetSiteNm()),R=P(()=>l.selectedId==="__new__"?null:l.selectedId),K=P(()=>`${l.selectedId}_${l.openMode}_${l.resetSeq}`),A=()=>{const{sortKey:e,sortDir:t}=n;return!e||!M[e]?{}:{sort:M[e][t]}},O=e=>{n.sortKey===e?n.sortDir==="asc"?n.sortDir="desc":(n.sortKey="",n.sortDir="asc"):(n.sortKey=e,n.sortDir="asc"),r.pageNo=1,g()},D=async()=>{var e;try{const t=Object.fromEntries(Object.entries(p).filter(([a,c])=>c!==""&&c!==null&&c!==void 0&&a!=="pathId")),s=((e=(await boApiSvc.syTemplate.getPathTreeNodeCounts(t,"\uACBD\uB85C\uBCC4\uCE74\uC6B4\uD2B8","\uC870\uD68C")).data)==null?void 0:e.data)||[];Object.keys(_).forEach(a=>{delete _[a]});for(const a of s)a&&a.pathId!=null&&(_[a.pathId]=a.cnt)}catch(t){console.error("[handleLoadPathTreeNodeCounts]",t)}},g=async(e="DEFAULT")=>{var t;n.loading=!0;try{const o={pageNo:r.pageNo,pageSize:r.pageSize,...A(),...n.selectedPath!=null?{pathId:n.selectedPath}:{},...coUtil.cofOmitEmpty(p)};o.searchValue&&!o.searchType&&(o.searchType="templateNm,templateSubject");const a=(t=(await boApiSvc.syTemplate.getPage(o,"\uD15C\uD50C\uB9BF\uAD00\uB9AC","\uBAA9\uB85D\uC870\uD68C")).data)==null?void 0:t.data;m.splice(0,m.length,...(a==null?void 0:a.pageList)||[]),r.pageTotalCount=(a==null?void 0:a.pageTotalCount)||m.length,r.pageTotalPage=(a==null?void 0:a.pageTotalPage)||coUtil.cofTotalPage(r),coUtil.cofBuildPagerNums(r),Object.assign(r.pageCond,(a==null?void 0:a.pageCond)||r.pageCond),n.error=null,D()}catch(o){console.error("[catch-info]",o),n.error=o.message}finally{n.loading=!1}},U=e=>{u.row=e,u.show=!0},N=()=>{u.show=!1,u.row=null},k=async e=>{var s,a;const t=u.row;if(!t||!t.templateId)return;const o=t.pathId;t.pathId=e;try{await boApiSvc.syTemplate.update(t.templateId,{pathId:e},"\uD15C\uD50C\uB9BF\uAD00\uB9AC","\uD45C\uC2DC\uACBD\uB85C\uBCC0\uACBD"),d==null||d("\uD45C\uC2DC\uACBD\uB85C\uAC00 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4.","success"),D()}catch(c){console.error("[onPathPicked] save failed",c),t.pathId=o,d==null||d(((a=(s=c.response)==null?void 0:s.data)==null?void 0:a.message)||"\uD45C\uC2DC\uACBD\uB85C \uC800\uC7A5 \uC2E4\uD328","error",0)}},j=e=>boUtil.bofGetPathLabel(e)||(e==null?"":"#"+e),Y=async()=>{const e=window.sfGetBoCodeStore();await e.saLoadCodes(["TEMPLATE_TYPE_CD","USE_YN","DATE_RANGE_OPT"],{compNm:"SyTemplateMng"}),b.template_type=e.sgGetGrpCodes("TEMPLATE_TYPE_CD"),b.use_yn=e.sgGetGrpCodes("USE_YN"),b.date_range_opts=e.sgGetGrpCodes("DATE_RANGE_OPT")};E(async()=>{const t=new Date().getFullYear();Object.assign(p,{useYn:"Y",dateRangeType:"reg_date",dateRangeStart:`${t-3}-01-01`,dateRangeEnd:`${t}-12-31`}),await Y();const o=new URLSearchParams(window.location.search),s=["page","id","orderId","claimId","embed","dtlMode"];Object.keys(p).forEach(a=>{!s.includes(a)&&o.has(a)&&(p[a]=o.get(a))}),await g("DEFAULT"),Object.assign(C,p)});const B=()=>{boUtil.bofApplyDateRange(p),r.pageNo=1},z=e=>{l.selectedId=e,l.openMode="view",l.active=!0,l.reloadTrigger++},h=()=>{l.selectedId="__new__",l.openMode="view",l.active=!1,l.resetSeq++},$=e=>{l.selectedId=e,l.openMode="edit",l.active=!0,l.reloadTrigger++},F=()=>{l.selectedId="__new__",l.openMode="edit",l.active=!0,l.resetSeq++},q=()=>{h()},V=(e,t={})=>{if(e==="syTemplateMng"){t.reload&&g("RELOAD"),h();return}if(e==="__cancelEdit__"){if(l.selectedId&&l.selectedId!=="__new__"){l.openMode="view";return}h();return}if(e==="__closeDtl__"){h();return}if(e==="__switchToEdit__"){l.openMode="edit";return}y.navigate(e,t)},W=e=>{f.template=e,f.show=!0},H=e=>{w.template=e,w.show=!0},J=async e=>{var s,a;if(!await S("\uC0AD\uC81C",`[${e.templateNm}] \uD15C\uD50C\uB9BF\uC744 \uC0AD\uC81C\uD558\uC2DC\uACA0\uC2B5\uB2C8\uAE4C?`))return;const o=m.findIndex(c=>c.templateId===e.templateId);o!==-1&&m.splice(o,1),l.selectedId===e.templateId&&h();try{const c=await boApiSvc.syTemplate.remove(e.templateId,"\uD15C\uD50C\uB9BF\uAD00\uB9AC","\uC0AD\uC81C");d&&d("\uC0AD\uC81C\uB418\uC5C8\uC2B5\uB2C8\uB2E4.","success")}catch(c){console.error("[catch-info]",c);const ae=((a=(s=c.response)==null?void 0:s.data)==null?void 0:a.message)||c.message||"\uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.";d&&d(ae,"error",0)}},Q=i({show:!1}),X=()=>{const e={...A(),...n.selectedPath!=null?{pathId:n.selectedPath}:{},...coUtil.cofOmitEmpty(p)};return e.searchValue&&!e.searchType&&(e.searchType="templateNm,templateSubject"),e},Z=e=>({\uBA54\uC77C\uD15C\uD50C\uB9BF:"badge-blue",\uBB38\uC790\uD15C\uD50C\uB9BF:"badge-green",MMS\uD15C\uD50C\uB9BF:"badge-orange",kakao\uD1A1\uD15C\uD50C\uB9BF:"badge-purple",kakao\uC54C\uB9BC\uD1A1\uD15C\uD50C\uB9BF:"badge-purple",\uC2DC\uC2A4\uD15C\uC54C\uB9BC:"badge-red",\uD68C\uC6D0\uC54C\uB9BC:"badge-teal"})[e]||"badge-gray",ee=e=>e==="Y"?"badge-green":"badge-gray",te=e=>l.selectedId===e.templateId?"background:#fff8f9;":"",T={};return T.baseSearch=[{key:"searchType",type:"multiCheck",label:"\uAC80\uC0C9\uB300\uC0C1",options:[{value:"templateNm",label:"\uD15C\uD50C\uB9BF\uBA85"},{value:"templateSubject",label:"\uC81C\uBAA9"}],placeholder:"\uAC80\uC0C9\uB300\uC0C1 \uC804\uCCB4",allLabel:"\uC804\uCCB4 \uC120\uD0DD",minWidth:"160px"},{key:"searchValue",type:"text",label:"\uAC80\uC0C9\uC5B4",placeholder:"\uAC80\uC0C9\uC5B4 \uC785\uB825"},{key:"templateTypeCd",type:"select",label:"\uC720\uD615",options:()=>b.template_types,nullLabel:"\uC720\uD615 \uC804\uCCB4"},{key:"useYn",type:"select",label:"\uC0AC\uC6A9\uC5EC\uBD80",options:()=>b.use_yn,nullLabel:"\uC0AC\uC6A9\uC5EC\uBD80 \uC804\uCCB4"},{key:"dateRange",type:"dateRange",label:"\uB4F1\uB85D\uC77C",startKey:"dateRangeStart",endKey:"dateRangeEnd",rangeOptions:()=>b.date_range_opts,onRangeChange:()=>v("searchParam-dateRange")}],T.baseGrid=[{key:"pathId",label:"\uD45C\uC2DC\uACBD\uB85C",style:"width:170px;max-width:170px;",pathLabelOpen:{label:j,open:e=>I("pathModal-open",e),clear:e=>{u.row=e,k(null)},placeholder:"\uACBD\uB85C \uC120\uD0DD..."}},{key:"templateId",label:"ID"},{key:"templateTypeCd",label:"\uD15C\uD50C\uB9BF\uC720\uD615",badge:e=>Z(e.templateTypeCd)},{key:"templateCode",label:"\uD15C\uD50C\uB9BF\uCF54\uB4DC",cellInnerStyle:"background:#f5f5f5;padding:1px 5px;border-radius:3px;font-size:11px;color:#555;font-family:monospace;"},{key:"templateNm",label:"\uD15C\uD50C\uB9BF\uBA85",sortKey:"nm",link:!0,cellInnerStyle:e=>l.selectedId===e?"color:#e8587a;font-weight:700;":""},{key:"templateSubject",label:"\uC81C\uBAA9(Subject)",cellStyle:"color:#555",fmt:e=>e||"-"},{key:"useYn",label:"\uC0AC\uC6A9\uC5EC\uBD80",badge:e=>ee(e.useYn),fmt:e=>e==="Y"?"\uC0AC\uC6A9":"\uBBF8\uC0AC\uC6A9"},{key:"regDate",label:"\uB4F1\uB85D\uC77C",sortKey:"reg",fmt:e=>coUtil.cofYmd(e)||"-"},{key:"siteNm",label:"\uC0AC\uC774\uD2B8\uBA85",cellStyle:"color:#2563eb;",fmt:()=>L.value}],{excelModal:Q,buildExcelParams:X,columns:T,templates:m,uiState:n,templateCounts:_,searchParam:p,baseGridPager:r,detailPanel:l,pathPickModal:u,previewModal:f,sendModal:w,handleBtnAction:v,handleSelectAction:I,handleGridCellAction:x,fnCallbackModal:G,cfDetailEditId:R,cfDetailKey:K,fnRowStyle:te,inlineNavigate:V,handleSearchList:g,showToast:d,showConfirm:S}},template:`
+<bo-page title="\uD15C\uD50C\uB9BF\uAD00\uB9AC" :share-query="searchParam">
+  <!-- ===== \u25A0. \uAC80\uC0C9 \uC601\uC5ED =================================================== -->
+  <bo-container>
+    <bo-search-area :loading="uiState.loading" @search="handleBtnAction('searchParam-list')" @reset="handleBtnAction('searchParam-reset')" :columns="columns.baseSearch" :param="searchParam" />
+  </bo-container>
+  <!-- ===== \u25A0. \uC88C \uD2B8\uB9AC + \uC6B0 \uC601\uC5ED ============================================= -->
+  <div class="bo-2col">
+    <!-- ===== \u25A0.\u25A0. \uACBD\uB85C \uD2B8\uB9AC ================================================= -->
+    <bo-container bare>
+      <bo-path-tree-card biz-cd="sy_template" title="\uD45C\uC2DC\uACBD\uB85C" :show-biz-cd="false" :counts="templateCounts"
+        max-height="calc(100vh - 320px)"
+        :selected="uiState.selectedPath" @select="path => handleSelectAction('pathTree-select', path)" />
+    </bo-container>
+    <!-- ===== \u25A0.\u25A0. \uBAA9\uB85D \uC601\uC5ED =============================================== -->
+    <bo-container title="\uD15C\uD50C\uB9BF\uBAA9\uB85D" :count-text="baseGridPager.pageTotalCount + '\uAC74'">
+      <template #toolbar-actions>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn_excel" @click="excelModal.show = true">\uC5D1\uC140</button>
+          <button class="btn btn_new" title="Ctrl+\uD074\uB9AD/\uD720\uD074\uB9AD: \uC0C8\uCC3D"
+            @click="handleBtnAction('templates-add', $event)"
+            @auxclick="handleBtnAction('templates-add', $event)">
+            + \uC2E0\uADDC
+          </button>
+        </div>
+      </template>
+      <bo-grid bare max-height="calc(100vh - 320px)"
+        :columns="columns.baseGrid" :rows="templates" row-key="templateId" :selected-key="detailPanel.selectedId"
+        :sort-state="uiState" :row-style="fnRowStyle"
+        @sort="key => handleBtnAction('templates-sort', key)"
+        grid-id="templates-cellClick" @cell-click="e => handleGridCellAction(e.cmd, e.colKey, e.row, e)"
+            table-max-height="540px">
+        <template #head-actions>
+          \uAD00\uB9AC
+        </template>
+        <template #row-actions="{ row, gridId, pinStyle }">
+          <td :style="'white-space:nowrap;' + pinStyle">
+            <div class="actions" style="white-space:nowrap;flex-wrap:nowrap;">
+              <button class="btn btn-secondary btn-xs" @click="handleSelectAction('templates-rowPreview', row)">
+                \uBBF8\uB9AC\uBCF4\uAE30
+              </button>
+              <button class="btn btn_send btn-xs" style="background:#52c41a;color:#fff;border-color:#52c41a;" @click="handleSelectAction('templates-rowSend', row)">
+                \uBC1C\uC1A1
+              </button>
+              <button class="btn btn_row_edit"
+                @click.stop="handleGridCellAction(gridId, 'btn_row_edit', row, $event)"
+                @auxclick.stop="handleGridCellAction(gridId, 'btn_row_edit', row, $event)">
+                \uC218\uC815
+              </button>
+              <button class="btn btn_row_delete" @click.stop="handleGridCellAction(gridId, 'btn_row_delete', row)">
+                \uC0AD\uC81C
+              </button>
+            </div>
+          </td>
+        </template>
+      </bo-grid>
+      <!-- \uD398\uC774\uC800\uB294 \uADF8\uB9AC\uB4DC \uBC16, \uCEE8\uD14C\uC774\uB108 \uC548 -->
+      <bo-pager :pager="baseGridPager" :on-set-page="n => handleBtnAction('templates-pager-setPage', n)" :on-size-change="() => handleSelectAction('templates-pager-sizeChange')" />
+    </bo-container>
+  </div>
+  <!-- ===== \u25A0. \uC218\uC815 \uD328\uB110 (\uC804\uCCB4 \uD3ED, \uD56D\uC0C1 \uD45C\uC2DC) ============================= -->
+  <sy-template-dtl :key="cfDetailKey" :navigate="inlineNavigate" :dtl-id="cfDetailEditId"
+    :dtl-mode="detailPanel.openMode === 'edit' ? (cfDetailEditId ? 'edit' : 'new') : 'view'"
+    :active="detailPanel.active"
+    :reload-trigger="detailPanel.reloadTrigger"
+ />
+  <!-- ===== \u25A0. \uBBF8\uB9AC\uBCF4\uAE30 / \uBC1C\uC1A1 / \uACBD\uB85C \uC120\uD0DD \uBAA8\uB2EC =============================== -->
+  <template-preview-modal v-if="previewModal ? (previewModal.show) : false" :tmpl="previewModal.template" :sample-params="previewModal.template?.sampleParams || '{}'" modal-name="template-preview" :on-callback="fnCallbackModal" />
+  <template-send-modal v-if="sendModal ? (sendModal.show) : false" :tmpl="sendModal.template" :show-toast="showToast" :show-confirm="showConfirm" modal-name="template-send" :on-callback="fnCallbackModal" />
+  <bo-cm-popup-modal v-if="pathPickModal ? (pathPickModal.show) : false" popup-cmd="cmPopup-path-pick" popup-code="path" result-type="id" :init-param="{ bizCd: 'sy_template' }" :on-callback="fnCallbackModal" />
+  <!-- ===== \u25A0. \uC5D1\uC140 \uB2E4\uC6B4\uB85C\uB4DC \uBAA8\uB2EC (\uC989\uC2DC/\uC608\uC57D + \uC9C4\uD589\uC911 \uC548\uB0B4 + \uAC15\uC81C\uCDE8\uC18C) ========== -->
+  <bo-excel-down-modal :show="excelModal.show" domain="syTemplate"
+    area-nm="\uD15C\uD50C\uB9BF\uAD00\uB9AC" :columns="columns.baseGrid" ui-nm="\uD15C\uD50C\uB9BF\uAD00\uB9AC" :params="buildExcelParams()"
+    @close="excelModal.show = false" />
+</bo-page>
+`};

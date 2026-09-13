@@ -1,0 +1,15 @@
+(function(n){"use strict";const c=n.Capacitor,s=!!(c&&typeof c.isNativePlatform=="function"&&c.isNativePlatform()),d=c&&typeof c.getPlatform=="function"?c.getPlatform():"web";function f(e){return c&&c.Plugins?c.Plugins[e]:null}async function l(e){if(!s)return!1;const t=f("PushNotifications"),a=f("Device");if(!t)return console.warn("[coNative] PushNotifications \uD50C\uB7EC\uADF8\uC778 \uC5C6\uC74C"),!1;let r=await t.checkPermissions();return(r.receive==="prompt"||r.receive==="prompt-with-rationale")&&(r=await t.requestPermissions()),r.receive!=="granted"?(console.warn("[coNative] \uD478\uC2DC \uAD8C\uD55C \uAC70\uBD80\uB428"),!1):(await t.register(),t.addListener("registration",async o=>{try{const i=a?await a.getInfo():{platform:d},u={pushToken:o.value,deviceType:i.platform,deviceModel:i.model||"",deviceOs:`${i.platform} ${i.osVersion||""}`.trim(),appVersion:n.__APP_VERSION__||"1.0.0"},h=n.coUtil&&typeof n.coUtil.cofApiHdr=="function"?n.coUtil.cofApiHdr(e.uiNm,e.cmdNm):{};await e.apiClient.post(e.apiPath,u,h)}catch(i){console.error("[coNative] \uD478\uC2DC \uD1A0\uD070 \uB4F1\uB85D \uC2E4\uD328",i)}}),t.addListener("registrationError",o=>{console.error("[coNative] FCM/APNs \uB4F1\uB85D \uC5D0\uB7EC",o)}),t.addListener("pushNotificationReceived",o=>{if(typeof e.onShow=="function")try{e.onShow(o)}catch(i){console.error(i)}else typeof n.showToast=="function"&&n.showToast(`${o.title||""} ${o.body||""}`.trim(),"success")}),t.addListener("pushNotificationActionPerformed",o=>{const i=o.notification&&o.notification.data||{};if(typeof e.onTap=="function")try{e.onTap(i)}catch(u){console.error(u)}else i.pageId&&typeof n.navigate=="function"&&n.navigate(i.pageId,{dtlId:i.dtlId})}),!0)}function v(e){if(!s)return()=>{};const t=f("App");if(!t)return()=>{};const a=t.addListener("backButton",r=>{try{!(e&&e(r))&&t.exitApp&&r&&r.canGoBack===!1&&t.exitApp()}catch(o){console.error("[coNative] backButton handler error",o)}});return()=>a&&a.remove&&a.remove()}function m(e){if(!s)return()=>{};const t=f("App");if(!t)return()=>{};const a=t.addListener("appStateChange",r=>{try{e&&e(r)}catch(o){console.error(o)}});return()=>a&&a.remove&&a.remove()}function p(){if(!s||document.getElementById("co-native-safe-area"))return;const e=document.createElement("style");e.id="co-native-safe-area",e.textContent=`
+      :root {
+        --co-safe-top: env(safe-area-inset-top, 0px);
+        --co-safe-bottom: env(safe-area-inset-bottom, 0px);
+        --co-safe-left: env(safe-area-inset-left, 0px);
+        --co-safe-right: env(safe-area-inset-right, 0px);
+      }
+      body {
+        padding-top: var(--co-safe-top);
+        padding-bottom: var(--co-safe-bottom);
+        padding-left: var(--co-safe-left);
+        padding-right: var(--co-safe-right);
+        box-sizing: border-box;
+      }
+    `,document.head.appendChild(e)}n.coNative={isNative:s,platform:d,plugin:f,initPush:l,bindBackButton:v,bindAppState:m,applySafeArea:p},s&&typeof document!="undefined"&&(document.readyState==="loading"?document.addEventListener("DOMContentLoaded",p):p()),`${d}${s}`})(typeof window!="undefined"?window:this);

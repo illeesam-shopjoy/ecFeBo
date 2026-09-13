@@ -1,0 +1,1 @@
+(function(e){"use strict";e.BO_EXCEL_DOMAINS=[{key:"user",label:"\uC0AC\uC6A9\uC790",baseUrl:"/bo/excel/user",group:"\uC2DC\uC2A4\uD15C"},{key:"role",label:"\uC5ED\uD560(\uAD8C\uD55C)",baseUrl:"/bo/excel/role",group:"\uC2DC\uC2A4\uD15C"}],e.boGetExcelDomain=function(n){return n&&(e.BO_EXCEL_DOMAINS||[]).find(r=>r.key===n)||null}})(typeof window!="undefined"?window:this);

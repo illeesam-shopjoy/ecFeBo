@@ -1,0 +1,1 @@
+window.useBoRoleStore=Pinia.defineStore("boRole",{state:()=>({svRoles:[]}),actions:{saSetRoles(e){this.svRoles=e||[]},saClear(){this.svRoles=[]}}}),window.sfGetBoRoleStore=()=>{var e;try{return((e=window.useBoRoleStore)==null?void 0:e.call(window))||{svRoles:[]}}catch(o){return console.error("[sfGetBoRoleStore] error:",o),{svRoles:[]}}};
