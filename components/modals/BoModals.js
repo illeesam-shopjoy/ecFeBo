@@ -1829,9 +1829,24 @@ window.AuthLoginModal = {
     /* page 모드 = 최초 미인증 전용 화면 (불투명 배경 + 배경클릭/닫기 비활성) */
     const cfIsPage = Vue.computed(() => props.mode === 'page');
 
+    /* 2026-09-14(요청사항: "로그인 화면 최상단에 local, dev, prod 표시해주고 api url cdn url") —
+     * ecFeFoNuxt4 헤더의 env-mode-badge와 같은 목적. window.envBoConsts(local 원본) /
+     * lib/env/profiles/envBoConsts.{dev,prod}.js(배포 빌드 시 덮어씀)의 runMode/baseApiHost·Port/
+     * cdnApiHost·Port를 그대로 화면표시용으로 미러링 — 호스트명일 뿐 비밀값이 아니라 노출해도 무해. */
+    const envBadge = Vue.computed(() => {
+      const env = window.envBoConsts || {};
+      const hostPort = (host, port) => (host ? host + (port ? ':' + port : '') : '(상대경로)');
+      return {
+        mode: env.runMode || 'local',
+        api: hostPort(env.baseApiHost, env.baseApiPort),
+        cdn: hostPort(env.cdnApiHost, env.cdnApiPort),
+      };
+    });
+
     return {
       baseRegFormColumns, baseLoginFormColumns,                               // 컬럼 정의
       cfIsPage,                                                              // 전용 화면 여부
+      envBadge,                                                              // 환경표시 배지
       handleBtnAction, handleSelectAction,                                    // dispatch
     };
   },
@@ -1840,6 +1855,9 @@ window.AuthLoginModal = {
   :overlay-bg="cfIsPage ? '#f3f4f6' : 'rgba(18,24,40,0.55)'"
   :close-on-backdrop="!cfIsPage" @close="handleBtnAction('modal-close')">
   <div class="login-modal-box">
+    <div style="text-align:center;font-size:10px;color:#9ca3af;line-height:1.4;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      {{ envBadge.mode }} · api {{ envBadge.api }} · cdn {{ envBadge.cdn }}
+    </div>
     <div class="login-modal-header">
       <div class="login-tabs">
         <span :class="{active: modal.tab==='login'}" @click="handleBtnAction('tab-change', 'login')">

@@ -372,6 +372,17 @@ window.foAppHeader = {
       foSiteNo: window.FO_SITE_NO || '01',
       boSiteNo: '01', /* BO site_no — FO localStorage 접근 금지, 기본값 고정 */
       cfFoActive: computed(() => window.useFoAppStore?.()?.svActive || '-'),
+      /* 2026-09-14(요청사항: "ShopJoy 라벨 아래에도 local, dev, prod / api url / cdn url
+       * 표시해줘") — ecFeFoNuxt4 헤더의 env-mode-badge와 같은 목적. cfFoActive(위, 기존)는
+       * "prod/dev/local"만 보여줬고 api/cdn 호스트는 안 보였다. envFoConsts(local 원본) /
+       * lib/env/profiles/envFoConsts.{dev,prod}.js(배포 빌드 시 덮어씀)의 baseApiHost·Port/
+       * cdnApiHost·Port를 그대로 화면표시용으로 미러링 — 호스트명일 뿐 비밀값이 아니라
+       * cfFoActive==='prod'라도 노출해도 무해. */
+      cfEnvHosts: computed(() => {
+        const env = window.envFoConsts || {};
+        const hostPort = (host, port) => (host ? host + (port ? ':' + port : '') : '(상대경로)');
+        return { api: hostPort(env.baseApiHost, env.baseApiPort), cdn: hostPort(env.cdnApiHost, env.cdnApiPort) };
+      }),
     };
   },
 
@@ -450,6 +461,11 @@ window.foAppHeader = {
             background: cfFoActive==='prod'?'#e53935':cfFoActive==='dev'?'#e3f0fb':cfFoActive==='local'?'#fff59d':'#f0f0f0',
             borderColor: cfFoActive==='prod'?'#c62828':cfFoActive==='dev'?'#90caf9':cfFoActive==='local'?'#f9a825':'#ccc',
           }">{{ cfFoActive }}</span>
+      </span>
+      <!-- 2026-09-14(요청사항: "ShopJoy 라벨 아래에도 local, dev, prod / api url / cdn url
+           표시해줘") — 위 태그라인 줄(prod/dev/local 배지)에 이어 api/cdn 호스트를 한 줄 더. -->
+      <span style="font-size:0.58rem;color:var(--text-muted);font-weight:400;opacity:0.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45vw;">
+        api {{ cfEnvHosts.api }} · cdn {{ cfEnvHosts.cdn }}
       </span>
     </div>
   </button>
