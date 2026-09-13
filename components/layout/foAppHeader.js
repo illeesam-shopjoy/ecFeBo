@@ -691,6 +691,15 @@ window.foAppHeader = {
             </button>
           </div>
         </template>
+        <!-- 2026-09-14(요청사항: "설정 아래쪽에 local, dev, prod 여부 / api url / cdn url 3줄
+             표시해줘 / 여기 설정도 마찬가지야") — BO 설정 드롭다운과 동일하게 하단에 표시.
+             cfFoActive/cfEnvHosts는 위 헤더 로고 아래 배지와 같은 값(그대로 재사용). -->
+        <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+        <div style="padding:6px 14px 8px;font-size:10px;color:var(--text-muted);line-height:1.5;">
+          <div>{{ cfFoActive }}</div>
+          <div>api {{ cfEnvHosts.api }}</div>
+          <div>cdn {{ cfEnvHosts.cdn }}</div>
+        </div>
         <!-- devTip 미리보기 레이어는 이 dropdown(overflow:hidden) 밖으로 Teleport — 안에 두면
              둥근 모서리 클리핑에 잘려서 잘 안 보였다(요청사항: "값적용 이 가려보이네"). -->
         <Teleport to="body">
