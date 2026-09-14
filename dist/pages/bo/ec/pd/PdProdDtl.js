@@ -943,11 +943,14 @@ window._pdProdDtlState=window._pdProdDtlState||{tab:"info",tabMode:"tab"};const 
               <!-- ===== \uADF8\uB8F9 \uD5E4\uB354 \uD589 ================================================= -->
               <tr>
                 <th colspan="4" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;"></th>
+                <!-- 2026-09-14: \uB450 \uC139\uC158 \uB2E4 \uAC19\uC740 pd_prod_sku \uD14C\uC774\uBE14\uC774\uB77C \uD14C\uC774\uBE14\uBA85 \uD45C\uAE30\uB294
+                     \uAD6C\uBD84 \uC758\uBBF8\uAC00 \uC5C6\uC5B4\uC9D0(\uC694\uCCAD\uC0AC\uD56D: "pd_prod_sku \uD14C\uC774\uBE14\uC740 \uC5C6\uC73C\uB2C8" \u2014 \uBCD1\uD569 \uC804
+                     \uBCC4\uB3C4 pd_prod_stock \uD14C\uC774\uBE14\uC744 \uAC00\uB9AC\uD0A4\uB358 \uB77C\uBCA8\uC774\uC5C8\uC74C) \u2014 \uC81C\uAC70. -->
                 <th colspan="3" style="padding:3px 8px;background:#fffbe6;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#b45309;">
-                  \u{1F4B0} \uAC00\uACA9 \uC124\uC815 <span style="color:#c7ae7a;font-weight:400;">(pd_prod_sku)</span>
+                  \u{1F4B0} \uAC00\uACA9 \uC124\uC815
                 </th>
                 <th colspan="2" style="padding:3px 8px;background:#f0fdf4;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#166534;">
-                  \u{1F4E6} \uC7AC\uACE0 \uC124\uC815 <span style="color:#8fc9a0;font-weight:400;">(pd_prod_sku)</span>
+                  \u{1F4E6} \uC7AC\uACE0 \uC124\uC815
                 </th>
                 <th colspan="2" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;text-align:center;font-size:11px;font-weight:600;color:#888;"></th>
               </tr>
