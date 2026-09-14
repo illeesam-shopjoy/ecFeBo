@@ -452,8 +452,19 @@ window.PdProdDtl = {
                   const key = (i.prodOptNm||'') + '||' + (i.prodOptVal||'');
                   if (level === 2 && seen.has(key)) { return; } // 2단 중복 제거
                   seen.add(key);
+                  // 2026-09-14 버그수정(요청사항: "체크가 옵션에 포커스 넣고 뺄때 생기네 /
+                  // 포커스 넣기전에 (초기값)체크되어 있어야 해") — 진짜 원인은 여기였다.
+                  // 서버에서 불러온 옵션값 행의 _id를 실제 prodOptId가 아니라 매번 100부터
+                  // 새로 세는 클라이언트 전용 카운터(_itemSeq)로 채우고 있었다. N×M 그리드/
+                  // generateSkus는 이 _id로 sku.prodOpt1Id·prodOpt2Id와 짝을 맞추는데,
+                  // 세션마다(심지어 같은 상품을 다시 열 때마다) 값이 달라지는 번호라 SKU의
+                  // 실제 옵션ID와 절대 일치할 수 없었다 — 그래서 초기엔 전부 매칭 실패(빈
+                  // 체크박스), 옵션값 입력칸에 포커스 들어갔다 나오면(변경감지로 SKU가
+                  // 재생성되며) existMap도 못 찾아 전부 새 기본값(useYn:'Y')으로 덮였던 것.
+                  // 서버가 이미 내려준 진짜 prodOptId를 그대로 _id로 써야 한다 — 새로 추가되는
+                  // (아직 저장 안 된) 행만 fnPresetToItem/그룹 추가 쪽에서 계속 _itemSeq를 쓴다.
                   grpOpts.push({
-                    _id:          _itemSeq++,
+                    _id:          i.prodOptId,
                     nm:           i.prodOptNm    || '',
                     val:          i.prodOptVal   || '',
                     stdCd:        i.prodOptStdCd || '',
