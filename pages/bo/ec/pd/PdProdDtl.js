@@ -3324,10 +3324,10 @@ window.PdProdDtl = {
               <tr>
                 <th colspan="4" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;"></th>
                 <th colspan="3" style="padding:3px 8px;background:#fffbe6;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#b45309;">
-                  💰 가격 설정
+                  💰 가격 설정 <span style="color:#c7ae7a;font-weight:400;">(pd_prod_sku)</span>
                 </th>
                 <th colspan="3" style="padding:3px 8px;background:#f0fdf4;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#166534;">
-                  📦 재고 설정
+                  📦 재고 설정 <span style="color:#8fc9a0;font-weight:400;">(pd_prod_stock)</span>
                 </th>
                 <th colspan="2" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;text-align:center;font-size:11px;font-weight:600;color:#888;"></th>
               </tr>
@@ -3343,16 +3343,20 @@ window.PdProdDtl = {
                 </th>
                 <th v-else style="width:0;border-right:2px solid #c7d2fe;"></th>
                 <!-- 가격 섹션 -->
-                <th style="width:130px;padding:3px 6px;text-align:left;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;">SKU코드</th>
-                <th style="width:120px;padding:3px 6px;text-align:right;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;">기본가</th>
-                <th style="width:100px;padding:3px 6px;text-align:right;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;border-right:2px solid #c7d2fe;">추가금액</th>
+                <th style="width:130px;padding:3px 6px;text-align:left;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;">SKU코드<span style="color:#c7ae7a;font-weight:400;"> (sku_code)</span></th>
+                <th style="width:120px;padding:3px 6px;text-align:right;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;" title="상품 판매가(salePrice) + 이 SKU의 추가금액(add_price) — 저장되는 컬럼이 아니라 화면 계산값">기본가<span style="color:#c7ae7a;font-weight:400;"> (계산값)</span></th>
+                <th style="width:100px;padding:3px 6px;text-align:right;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;border-right:2px solid #c7d2fe;">추가금액<span style="color:#c7ae7a;font-weight:400;"> (add_price)</span></th>
                 <!-- 재고 섹션 -->
-                <th style="width:160px;padding:3px 6px;text-align:left;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;">재고코드</th>
-                <th style="width:90px;padding:3px 6px;text-align:right;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;">재고수량</th>
-                <th style="width:100px;padding:3px 6px;text-align:left;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;border-right:2px solid #c7d2fe;">판매상태</th>
+                <th style="width:160px;padding:3px 6px;text-align:left;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;">재고코드<span style="color:#8fc9a0;font-weight:400;"> (stock_code)</span></th>
+                <th style="width:90px;padding:3px 6px;text-align:right;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;">재고수량<span style="color:#8fc9a0;font-weight:400;"> (stock_qty)</span></th>
+                <!-- 2026-09-14(요청사항: "그 외 항목은 컬럼영문명 표시해줘") 확인 중 발견 —
+                     판매상태(statusCd)는 pd_prod_sku/pd_prod_stock 어디에도 실제 저장 컬럼이
+                     없다(화면 상태만 있고 저장 API 페이로드에도 빠져있음) — 컬럼명 대신
+                     미저장임을 표시해둔다. -->
+                <th style="width:100px;padding:3px 6px;text-align:left;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;border-right:2px solid #c7d2fe;" title="아직 저장되는 컬럼이 없습니다(화면에만 있는 상태값) — 저장 시 반영되지 않습니다">판매상태<span style="color:#cf1322;font-weight:400;"> (미저장)</span></th>
                 <!-- 기타 -->
-                <th style="width:58px;padding:3px 6px;text-align:right;color:#555;font-size:11px;">판매수량</th>
-                <th style="width:36px;padding:3px 4px;text-align:center;color:#555;font-size:11px;">사용</th>
+                <th style="width:58px;padding:3px 6px;text-align:right;color:#555;font-size:11px;">판매수량<span style="color:#aaa;font-weight:400;"> (sale_count)</span></th>
+                <th style="width:36px;padding:3px 4px;text-align:center;color:#555;font-size:11px;">사용<span style="color:#aaa;font-weight:400;"> (use_yn)</span></th>
               </tr>
             </thead>
             <tbody>
