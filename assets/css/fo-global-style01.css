@@ -984,6 +984,25 @@ footer {
   .fo-header-actions .btn_kakao,
   .fo-header-actions .btn_pdf { display: none !important; }
 }
+/* 2026-09-15(요청사항: "모바일로볼때 좋아요, 장바구니, 상세 아이콘 보이게 해줘") —
+   상품카드의 장바구니/빠른보기(상세) 아이콘(.prod-hover, Home01~03.js·Prod01~03List.js
+   공통)이 @mouseenter/@mouseleave(마우스 전용 JS 이벤트)로만 opacity를 0→1로 바꿔서
+   터치 기기에서는 hover 자체가 발생하지 않아 절대 보이지 않았다(좋아요 하트만 hover와
+   무관하게 항상 보이는 별도 버튼이라 그것만 보였음). hover가 불가능한 기기(터치)에서는
+   인라인 opacity:0을 !important로 덮어써 항상 보이게 한다. */
+@media (hover: none) {
+  .prod-hover { opacity: 1 !important; }
+}
+/* 2026-09-15(요청사항: "모바일에 적절하지 않게 표현되네 반응형으로 잘 표현해줘") —
+   ProductModal(빠른보기, FoModals.js)의 이미지+정보 좌우 2단(display:flex, 이미지쪽
+   flex:0 0 360px 고정폭)이 좁은 화면에서 그대로 찌그러져 있었다. FoModal 자체 폭은
+   위 cfBoxStyle(FoAreaComp.js) 수정으로 뷰포트를 넘지 않게 됐지만, 그 안의 2단 레이아웃은
+   여전히 폭이 좁아지면 짜부라진다 — 좁은 화면에서는 위아래로 쌓는다. */
+@media (max-width: 640px) {
+  .pm-row { flex-direction: column !important; overflow-y: auto !important; }
+  .pm-media { flex: none !important; padding: 20px 20px 12px !important; }
+  .pm-info { overflow-y: visible !important; padding: 16px 20px 20px !important; }
+}
 [v-show] { transition: opacity 0.15s ease; }
 
 /* FRONT_SITE_NO 배지 hover 툴팁 */

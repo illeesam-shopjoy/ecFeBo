@@ -1292,8 +1292,13 @@ window.FoModal = {
   setup(props, { emit }) {
     /* ── ▼ 초기 reactive / 파생 변수 ─────────────────────────────────────── */
     const cfOverlayStyle = Vue.computed(() => 'z-index:' + props.zIndex + ';');
+    /* 2026-09-15(요청사항: "모바일에 적절하지 않게 표현되네 반응형으로 잘 표현해줘") —
+       width가 "600px"/"840px" 같은 고정 px면 모바일 뷰포트(예: 375px)보다 넓어져 모달이
+       옆으로 삐져나가고, 그 안의 좌우 2단(이미지+정보) 레이아웃까지 찌그러져 보였다(예:
+       ProductModal). min()으로 뷰포트 폭(좌우 16px 여백)을 넘지 않게 항상 clamp — width가
+       이미 %/vw/min() 등으로 반응형이면(예: maxWidth prop 그대로) 기존과 동일하게 동작. */
     const cfBoxStyle = Vue.computed(() =>
-      'width:' + props.width + ';max-width:' + props.maxWidth + ';'
+      'width:min(' + props.width + ', calc(100vw - 32px));max-width:' + props.maxWidth + ';'
       + 'height:' + props.height + ';max-height:' + props.maxHeight + ';'
       + (props.minHeight ? ('min-height:' + props.minHeight + ';') : '')
       + 'text-align:left;padding:' + props.boxPad + ';');

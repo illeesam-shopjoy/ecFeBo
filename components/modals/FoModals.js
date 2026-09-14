@@ -434,10 +434,10 @@ window.ProductModal = {
       {{ toastMsg }}
     </div>
   </transition>
-  <div style="background:#fff;border-radius:8px;width:100%;height:100%;overflow:hidden;display:flex;"
+  <div class="pm-row" style="background:#fff;border-radius:8px;width:100%;height:100%;overflow:hidden;display:flex;"
     role="dialog" aria-modal="true">
     <!-- 좌: 이미지 + 썸네일 -->
-    <div v-if="product" style="flex:0 0 360px;background:#f5f5f5;display:flex;flex-direction:column;padding:28px 24px 20px;">
+    <div v-if="product" class="pm-media" style="flex:0 0 360px;background:#f5f5f5;display:flex;flex-direction:column;padding:28px 24px 20px;">
       <!-- 메인 이미지 -->
       <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:280px;">
         <img v-if="cfThumbImgs[selThumb]" :src="cfThumbImgs[selThumb]" :alt="product.prodNm"
@@ -456,7 +456,7 @@ window.ProductModal = {
       </div>
     </div>
     <!-- 우: 정보 -->
-    <div v-if="product" style="flex:1;min-width:0;padding:28px 28px 24px;position:relative;display:flex;flex-direction:column;overflow-y:auto;">
+    <div v-if="product" class="pm-info" style="flex:1;min-width:0;padding:28px 28px 24px;position:relative;display:flex;flex-direction:column;overflow-y:auto;">
       <button @click="handleBtnAction('modal-close')"
         style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.2rem;cursor:pointer;color:#bbb;line-height:1;">
         ✕
