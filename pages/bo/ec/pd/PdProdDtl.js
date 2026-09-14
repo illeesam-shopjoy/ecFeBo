@@ -35,7 +35,7 @@ window.PdProdDtl = {
     const boUsers = reactive([]);
     const categories = reactive([]);
     const categoryProds = reactive([]);
-    const uiState = reactive({ isDraggingDivider: false, loading: false, mdModalOpen: false, error: null, topTab: window._pdProdDtlState.tab || 'info', tabMode2: window._pdProdDtlState.tabMode || 'tab', prodOptCategoryTypeCd: '', dragOptGrpId: null, dragOptItemIdx: null, dragoverOptItemIdx: null, skuFilter1: '', skuFilter2: '', skuFilterStock: '', dragImgIdx: null, dragoverImgIdx: null, dragBlockIdx: null, dragoverBlockIdx: null, splitPct: 65, previewDevice: 'pc', prodPickerOpen: '', prodPickerSearch: '', dragRelIdx: null, dragoverRelIdx: null, dragCodeIdx: null, dragoverCodeIdx: null, catPickerOpen: false, catPickerSearch: '', catDragIdx: null, catDragoverIdx: null, mdSearchType: '', mdSearch: '', prodPickerSearchType: '', promoPicker: null, stockCodePickerOpen: false, stockCodePickerSku: null,
+    const uiState = reactive({ isDraggingDivider: false, loading: false, mdModalOpen: false, error: null, topTab: window._pdProdDtlState.tab || 'info', tabMode2: window._pdProdDtlState.tabMode || 'tab', prodOptCategoryTypeCd: '', dragOptGrpId: null, dragOptItemIdx: null, dragoverOptItemIdx: null, skuFilter1: '', skuFilter2: '', skuFilterStock: '', dragImgIdx: null, dragoverImgIdx: null, dragBlockIdx: null, dragoverBlockIdx: null, splitPct: 65, previewDevice: 'pc', prodPickerOpen: '', prodPickerSearch: '', dragRelIdx: null, dragoverRelIdx: null, dragCodeIdx: null, dragoverCodeIdx: null, catPickerOpen: false, catPickerSearch: '', catDragIdx: null, catDragoverIdx: null, mdSearchType: '', mdSearch: '', prodPickerSearchType: '', promoPicker: null,
       /* 이미지 업로드 대상 옵션 — 옵션상품은 "옵션1 먼저 고르고 → 여러 장 한 번에" 가 자연스럽다.
          여기서 고른 값이 [파일 선택]/[URL 입력] 으로 새로 추가되는 행의 opt_id_1/2 초기값이 된다.
          (''=공통). 기존 행은 각 행의 select 로 계속 개별 변경할 수 있다. */
@@ -275,16 +275,6 @@ window.PdProdDtl = {
         return generateSkus();
       } else if (cmd === 'sku-move') {
         return moveSku(param.sku, param.dir);
-      } else if (cmd === 'skuStockCode-pick') {
-        uiState.stockCodePickerSku = param;
-        uiState.stockCodePickerOpen = true;
-      } else if (cmd === 'skuStockCode-select') {
-        if (uiState.stockCodePickerSku) { uiState.stockCodePickerSku.stockCode = param.stockCode; }
-        uiState.stockCodePickerOpen = false;
-        uiState.stockCodePickerSku = null;
-      } else if (cmd === 'skuStockCode-close') {
-        uiState.stockCodePickerOpen = false;
-        uiState.stockCodePickerSku = null;
       } else if (cmd === 'tabPage-change') {
         return onTabPageChange(param.key, param.pageNo);
       } else if (cmd === 'bundlePicker-open') {
@@ -498,7 +488,7 @@ window.PdProdDtl = {
 
           // SKU — getById 응답에 embedded (PdProdDto.Item.skus)
           const skuList = p.prodSkus || [];
-          tabData.skus.splice(0, tabData.skus.length, ...skuList.map(s => ({ ...s, _id: 'sku_' + s.prodSkuId, _optKey: s.prodSkuId, _nm1: s.prodOptNm1 || '', _nm2: s.prodOptNm2 || '', stock: s.stockQty || 0, stockCode: s.stockCode || '' })));
+          tabData.skus.splice(0, tabData.skus.length, ...skuList.map(s => ({ ...s, _id: 'sku_' + s.prodSkuId, _optKey: s.prodSkuId, _nm1: s.prodOptNm1 || '', _nm2: s.prodOptNm2 || '', stock: s.stockQty || 0 })));
 
           // 상품설명 [6] — 백엔드에서 sortOrd ASC 기본 정렬
           const contentList = r[6].data?.data || [];
@@ -949,14 +939,14 @@ window.PdProdDtl = {
           const key = String(i1._id);
           newSkus.push(existMap[key]
             ? { ...existMap[key], _nm1: i1.nm, _nm2: '' }
-            : { _id: 'sku_' + i1._id, _optKey: key, _nm1: i1.nm, _nm2: '', skuCode: '', stockCode: '', addPrice: 0, stock: 0, useYn: 'Y', statusCd: 'ON_SALE', saleCnt: 0 });
+            : { _id: 'sku_' + i1._id, _optKey: key, _nm1: i1.nm, _nm2: '', skuCode: '', addPrice: 0, stock: 0, useYn: 'Y', statusCd: 'ON_SALE', saleCnt: 0 });
         });
       } else {
         window.safeArrayUtils.safeForEach(g1, i1 => window.safeArrayUtils.safeForEach(g2, i2 => {
           const key = i1._id + '_' + i2._id;
           newSkus.push(existMap[key]
             ? { ...existMap[key], _nm1: i1.nm, _nm2: i2.nm }
-            : { _id: 'sku_' + key, _optKey: key, _nm1: i1.nm, _nm2: i2.nm, skuCode: '', stockCode: '', addPrice: 0, stock: 0, useYn: 'Y', statusCd: 'ON_SALE', saleCnt: 0 });
+            : { _id: 'sku_' + key, _optKey: key, _nm1: i1.nm, _nm2: i2.nm, skuCode: '', addPrice: 0, stock: 0, useYn: 'Y', statusCd: 'ON_SALE', saleCnt: 0 });
         }));
       }
       skus.splice(0, skus.length, ...newSkus);
@@ -968,16 +958,17 @@ window.PdProdDtl = {
        144행 목록에서는 "XL 이상만 +2000" 같은 패턴도, 값이 비어 있는 조합도 보이지 않는다.
        조합 설정(useYn 토글)과 같은 격자에 값 필드 하나를 얹어 한 화면에서 채우게 한다.
        목록과 **같은 skus 배열을 직접 편집**하므로 두 뷰 사이에 동기화 로직이 없다.
-       SKU코드·재고코드도 값 자체는 텍스트라 격자에 담을 수 있다(2026-08-25 추가) —
-       다만 이 둘은 SKU마다 달라야 하는 식별자라 unique:true 로 표시하고,
+       SKU코드도 값 자체는 텍스트라 격자에 담을 수 있다(2026-08-25 추가) —
+       SKU마다 달라야 하는 식별자라 unique:true 로 표시하고,
        fnMxBulkGuard 가 이 플래그를 보고 행/열 일괄 채우기를 원천 차단한다
-       (똑같은 코드를 여러 SKU에 한 번의 클릭으로 뿌리는 사고 방지). */
+       (똑같은 코드를 여러 SKU에 한 번의 클릭으로 뿌리는 사고 방지).
+       2026-09-14: 재고코드(stockCode) 필드 제거 — pd_prod_stock→pd_prod_sku 병합으로
+       stock_code 자체가 없어짐. */
     const SKU_MX_FIELDS = [
       { key: 'addPrice',  label: '추가금액', type: 'number', unit: '원' },
       { key: 'stock',     label: '재고수량', type: 'number', unit: '개' },
       { key: 'statusCd',  label: '판매상태', type: 'select' },
       { key: 'skuCode',   label: 'SKU코드', type: 'text', unique: true },
-      { key: 'stockCode', label: '재고코드', type: 'text', unique: true },
     ];
     /* fnMxField — 현재 편집 중인 필드 정의 */
     const fnMxField = () => SKU_MX_FIELDS.find(f => f.key === uiState.skuMxField) || SKU_MX_FIELDS[0];
@@ -1894,7 +1885,10 @@ window.PdProdDtl = {
           };
           break;
         }
-        case 'price':    payload = { skus: skus.map(s => ({ ...s, stockQty: s.stock ?? 0, prodSkuCode: s.skuCode || s.prodSkuCode || '' })) }; break;
+        // 2026-09-14 버그수정 — prodSkuCode는 이미 sku_code로 리네이밍된 옛 필드명이라
+        // 백엔드가 이 키를 읽지 않는다(row.get("skuCode")만 봄). 이 값 때문에 이 저장버튼으로는
+        // 사용자가 SKU코드를 고쳐도 항상 자동생성값(prodId-XXX)으로 덮였을 것 — skuCode로 수정.
+        case 'price':    payload = { skus: skus.map(s => ({ ...s, stockQty: s.stock ?? 0, skuCode: s.skuCode || '' })) }; break;
         case 'bundle':   payload = { items: tabData.bundleItems.map(b => ({ prodId: b.itemProdId || b.prodId || null, qty: b.itemQty || 1, priceRate: b.priceRate || 0, sortOrd: b.sortOrd || 0 })) }; break;
         case 'setitems': payload = { items: tabData.setItems.map(s => ({ prodId: s.itemProdId || s.prodId || null, qty: s.itemQty || 1, itemDesc: s.itemDesc || '', sortOrd: s.sortOrd || 0 })) }; break;
         case 'image': {
@@ -3336,8 +3330,8 @@ window.PdProdDtl = {
                 <th colspan="3" style="padding:3px 8px;background:#fffbe6;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#b45309;">
                   💰 가격 설정 <span style="color:#c7ae7a;font-weight:400;">(pd_prod_sku)</span>
                 </th>
-                <th colspan="3" style="padding:3px 8px;background:#f0fdf4;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#166534;">
-                  📦 재고 설정 <span style="color:#8fc9a0;font-weight:400;">(pd_prod_stock)</span>
+                <th colspan="2" style="padding:3px 8px;background:#f0fdf4;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#166534;">
+                  📦 재고 설정 <span style="color:#8fc9a0;font-weight:400;">(pd_prod_sku)</span>
                 </th>
                 <th colspan="2" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;text-align:center;font-size:11px;font-weight:600;color:#888;"></th>
               </tr>
@@ -3357,12 +3351,13 @@ window.PdProdDtl = {
                 <th style="width:120px;padding:3px 6px;text-align:right;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;" title="상품 판매가(salePrice) + 이 SKU의 추가금액(add_price) — 저장되는 컬럼이 아니라 화면 계산값">기본가<span style="color:#c7ae7a;font-weight:400;"> (계산값)</span></th>
                 <th style="width:100px;padding:3px 6px;text-align:right;font-weight:600;color:#b45309;font-size:11px;background:#fffde7;border-right:2px solid #c7d2fe;">추가금액<span style="color:#c7ae7a;font-weight:400;"> (add_price)</span></th>
                 <!-- 재고 섹션 -->
-                <th style="width:160px;padding:3px 6px;text-align:left;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;">재고코드<span style="color:#8fc9a0;font-weight:400;"> (stock_code)</span></th>
+                <!-- 2026-09-14: 재고코드(stock_code) 컬럼 제거 — pd_prod_stock을 pd_prod_sku로
+                     병합하며 stock_code 자체가 없어짐(원래도 서버가 항상 sku_code로만 덮어써서
+                     실질적으로 죽은 필드였음). -->
                 <th style="width:90px;padding:3px 6px;text-align:right;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;">재고수량<span style="color:#8fc9a0;font-weight:400;"> (stock_qty)</span></th>
                 <!-- 2026-09-14(요청사항: "그 외 항목은 컬럼영문명 표시해줘") 확인 중 발견 —
-                     판매상태(statusCd)는 pd_prod_sku/pd_prod_stock 어디에도 실제 저장 컬럼이
-                     없다(화면 상태만 있고 저장 API 페이로드에도 빠져있음) — 컬럼명 대신
-                     미저장임을 표시해둔다. -->
+                     판매상태(statusCd)는 pd_prod_sku 에 실제 저장 컬럼이 없다(화면 상태만
+                     있고 저장 API 페이로드에도 빠져있음) — 컬럼명 대신 미저장임을 표시해둔다. -->
                 <th style="width:100px;padding:3px 6px;text-align:left;font-weight:600;color:#166534;font-size:11px;background:#f0fdf4;border-right:2px solid #c7d2fe;" title="아직 저장되는 컬럼이 없습니다(화면에만 있는 상태값) — 저장 시 반영되지 않습니다">판매상태<span style="color:#cf1322;font-weight:400;"> (미저장)</span></th>
                 <!-- 기타 -->
                 <th style="width:58px;padding:3px 6px;text-align:right;color:#555;font-size:11px;">판매수량<span style="color:#aaa;font-weight:400;"> (sale_count)</span></th>
@@ -3405,16 +3400,6 @@ window.PdProdDtl = {
                 </td>
                 <!-- ===== 재고 섹션 (녹색 배경) ======================================= -->
                 <td style="padding:2px 4px;background:#f8fff8;">
-                  <div style="display:flex;align-items:center;gap:3px;">
-                    <input v-model="sku.stockCode" placeholder="재고코드"
-                      style="flex:1;min-width:0;font-size:11px;border:1px solid #86efac;border-radius:4px;padding:2px 4px;height:22px;font-family:monospace;" />
-                    <button type="button"
-                      @click="handleBtnAction('skuStockCode-pick', sku)"
-                      style="flex-shrink:0;border:1px solid #86efac;background:#f0fdf4;color:#166534;border-radius:4px;width:22px;height:22px;font-size:12px;padding:0;cursor:pointer;"
-                      title="재고코드 모달 선택">🔍</button>
-                  </div>
-                </td>
-                <td style="padding:2px 4px;background:#f8fff8;">
                   <input type="number" v-model.number="sku.stock" placeholder="0" min="0"
                     :style="'width:100%;font-size:12px;border:1px solid #86efac;border-radius:4px;padding:2px 5px;height:22px;text-align:right;'+((sku.stock||0)===0?'color:#f5222d;font-weight:700;':'')" />
                 </td>
@@ -3431,12 +3416,12 @@ window.PdProdDtl = {
                 </td>
               </tr>
               <tr v-if="skus.length===0">
-                <td :colspan="optGroups.length>1?13:12" style="text-align:center;color:#bbb;padding:16px;font-size:12px;">
+                <td :colspan="optGroups.length>1?12:11" style="text-align:center;color:#bbb;padding:16px;font-size:12px;">
                   옵션설정 탭에서 옵션 값 입력 후 [🔄 SKU 재생성]을 눌러주세요.
                 </td>
               </tr>
               <tr v-else-if="cfSkusFiltered.length===0">
-                <td :colspan="optGroups.length>1?13:12" style="text-align:center;color:#f5a623;padding:12px;font-size:12px;">
+                <td :colspan="optGroups.length>1?12:11" style="text-align:center;color:#f5a623;padding:12px;font-size:12px;">
                   필터 조건에 맞는 SKU가 없습니다.
                   <button class="btn btn-xs btn-secondary" @click="handleBtnAction('sku-filterReset')">필터 초기화</button>
                 </td>
@@ -3598,11 +3583,8 @@ window.PdProdDtl = {
   </div>
   <!-- ===== /dtl-tab-grid ============================================== -->
   <!-- ===== □. 탭 컨텐츠 =================================================== -->
-  <!-- ===== ■. 재고코드 선택 모달 (공통팝업 — popup-code="prodStock") ============= -->
-  <bo-cm-popup-modal v-if="uiState.stockCodePickerOpen" popup-cmd="cmPopup-prodStock-pick" popup-code="prodStock"
-    :title="uiState.stockCodePickerSku ? ('📦 재고코드 선택 — ' + uiState.stockCodePickerSku._nm1 + (uiState.stockCodePickerSku._nm2 ? ' / ' + uiState.stockCodePickerSku._nm2 : '')) : '📦 재고코드 선택'"
-    @select="r => handleBtnAction('skuStockCode-select', r)" @close="handleBtnAction('skuStockCode-close')" />
-  <!-- ===== □. 재고코드 선택 모달 ============================================= -->
+  <!-- 2026-09-14: 재고코드 선택 모달 제거 — pd_prod_stock→pd_prod_sku 병합으로 stock_code
+       자체가 없어짐(요청사항: "pd_prod_sku pd_prod_stock 는 필요없지 않어?"). -->
 </bo-container>
 </div>
 <!-- ===== □. 상세 카드 (제목 + 탭바 + 탭컨텐츠를 한 영역으로) ===================== -->
