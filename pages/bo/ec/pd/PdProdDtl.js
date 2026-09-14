@@ -487,8 +487,23 @@ window.PdProdDtl = {
           }
 
           // SKU — getById 응답에 embedded (PdProdDto.Item.skus)
+          // 2026-09-14 버그수정(요청사항: "초기조회될때 체크되지가 않았네 / 1번 옵션에 항목에
+          // 클릭후 나가면 전체가 체크되네") — _optKey가 sku.prodSkuId(그 SKU 자신의 PK)로
+          // 잘못 채워져 있었다. fnMxSku/generateSkus는 항상 "옵션1값ID[_옵션2값ID]" 형태의
+          // 합성키로 찾는데, 이 값과 절대 일치하지 않으니:
+          //  1) N×M 조합설정 그리드는 매번 조회 실패 → 체크박스가 항상 비활성으로 보였고,
+          //  2) 옵션값 편집으로 generateSkus()가 재실행되면 existMap도 이 키로 못 찾아
+          //     기존 144개 SKU를 전부 버리고 useYn:'Y' 기본값의 새 행으로 갈아치웠다
+          //     (addPrice/stock/skuCode까지 같이 날아가는 진짜 데이터유실 버그였음).
           const skuList = p.prodSkus || [];
-          tabData.skus.splice(0, tabData.skus.length, ...skuList.map(s => ({ ...s, _id: 'sku_' + s.prodSkuId, _optKey: s.prodSkuId, _nm1: s.prodOptNm1 || '', _nm2: s.prodOptNm2 || '', stock: s.stockQty || 0 })));
+          tabData.skus.splice(0, tabData.skus.length, ...skuList.map(s => ({
+            ...s,
+            _id: 'sku_' + s.prodSkuId,
+            _optKey: s.prodOpt2Id ? (s.prodOpt1Id + '_' + s.prodOpt2Id) : String(s.prodOpt1Id || ''),
+            _nm1: s.prodOptNm1 || '',
+            _nm2: s.prodOptNm2 || '',
+            stock: s.stockQty || 0,
+          })));
 
           // 상품설명 [6] — 백엔드에서 sortOrd ASC 기본 정렬
           const contentList = r[6].data?.data || [];
