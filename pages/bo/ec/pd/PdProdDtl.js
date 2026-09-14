@@ -3353,11 +3353,14 @@ window.PdProdDtl = {
               <!-- ===== 그룹 헤더 행 ================================================= -->
               <tr>
                 <th colspan="4" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;"></th>
+                <!-- 2026-09-14: 두 섹션 다 같은 pd_prod_sku 테이블이라 테이블명 표기는
+                     구분 의미가 없어짐(요청사항: "pd_prod_sku 테이블은 없으니" — 병합 전
+                     별도 pd_prod_stock 테이블을 가리키던 라벨이었음) — 제거. -->
                 <th colspan="3" style="padding:3px 8px;background:#fffbe6;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#b45309;">
-                  💰 가격 설정 <span style="color:#c7ae7a;font-weight:400;">(pd_prod_sku)</span>
+                  💰 가격 설정
                 </th>
                 <th colspan="2" style="padding:3px 8px;background:#f0fdf4;border-bottom:1px solid #e0e0e0;border-right:2px solid #c7d2fe;text-align:center;font-size:11px;font-weight:700;color:#166534;">
-                  📦 재고 설정 <span style="color:#8fc9a0;font-weight:400;">(pd_prod_sku)</span>
+                  📦 재고 설정
                 </th>
                 <th colspan="2" style="padding:3px 6px;background:#f5f5f5;border-bottom:1px solid #e0e0e0;text-align:center;font-size:11px;font-weight:600;color:#888;"></th>
               </tr>
