@@ -476,8 +476,18 @@ window.PdProdDtl = {
               return {
                 _id:      _optSeq++,
                 grpNm:    g.optTypeCd || '',
-                level1Cd: level === 1 ? (g.optTypeCd || '') : (optTypes_[0]?.optTypeCd || ''),
-                level2Cd: level === 2 ? (g.optTypeCd || '') : '',
+                // 2026-09-14 버그수정(요청사항: "옵션1 값 색상 으로 표시되어야 하는데
+                // 안그러네 그리드는 잘 표시되는데 왜 그런거야?") — level2Cd를
+                // "level===2일 때만" 채우고 있었다. fnOptGrpType(level)이 옵션1/옵션2
+                // select의 표시값으로 optGroups[level-1].level2Cd를 그대로 쓰는데, 1단
+                // (색상) 그룹은 항상 level2Cd=''로 만들어져서 목록(그리드, 서버값을 그대로
+                // 텍스트로 찍음)엔 TYPE_COLOR가 정상 표시돼도 수정화면 select는 항상
+                // "-- 선택 --"이었다. level1Cd(카테고리 공통값)와 level2Cd(이 그룹 자신의
+                // 유형코드)를 레벨 구분 없이 항상 채우도록 수정 — level1Cd는 p.prodOptStdCd
+                // (카테고리 코드, 두 그룹이 공유)로, level2Cd는 g.optTypeCd(이 그룹 자신의
+                // 코드, TYPE_COLOR/TYPE_SIZE)로 항상 설정한다.
+                level1Cd: p.prodOptStdCd || '',
+                level2Cd: g.optTypeCd || '',
                 level,
                 items:    grpOpts,
               };
