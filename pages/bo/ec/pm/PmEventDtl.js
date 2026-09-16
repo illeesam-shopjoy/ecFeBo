@@ -20,7 +20,10 @@ window.PmEventDtl = {
     const showRefModal = window.boApp.showRefModal;  // 참조 모달
     const products = reactive([]);
     const vendors = reactive([]);
-    const uiState = reactive({ loading: false, showProdPopup: false, showVendorModal: false, error: null, tab: window._ecEventDtlState.tab || 'info', tabMode2: window._ecEventDtlState.tabMode || 'tab', activeContentTab: 1, prodSearch: ''});
+    const uiState = reactive({ loading: false, showProdPopup: false, showVendorModal: false, showTimedealProdPopup: false, showTimedealForm: false, error: null, tab: window._ecEventDtlState.tab || 'info', tabMode2: window._ecEventDtlState.tabMode || 'tab', activeContentTab: 1, prodSearch: ''});
+    const timedealItems = reactive([]);
+    const timedealSkus = reactive([]);
+    const timedealForm = reactive({ eventItemId: '', prodId: '', prodSkuId: '', dealPrice: null, totalQty: null, startDate: '', endDate: '' });
     const tab = Vue.toRef(uiState, 'tab');
     const tabMode2 = Vue.toRef(uiState, 'tabMode2');
     const codes = reactive({ event_statuses: [] });
@@ -110,6 +113,19 @@ window.PmEventDtl = {
       // 미리보기 이벤트 확인 토스트
       } else if (cmd === 'preview-eventConfirm') {
         return onEventConfirm();
+      // 타임딜 대상상품 추가 팝업 열기/닫기
+      } else if (cmd === 'prodPickTimedealModal-open') {
+        uiState.showTimedealProdPopup = true;
+        return;
+      } else if (cmd === 'prodPickTimedealModal-close') {
+        uiState.showTimedealProdPopup = false;
+        return;
+      // 타임딜 등록 폼 닫기/저장
+      } else if (cmd === 'timedeal-form-close') {
+        uiState.showTimedealForm = false;
+        return;
+      } else if (cmd === 'timedeal-form-submit') {
+        return submitTimedealForm();
       } else {
         console.warn('[handleBtnAction] unknown cmd:', cmd);
       }
@@ -130,6 +146,15 @@ window.PmEventDtl = {
       // 판매업체 선택
       } else if (cmd === 'vendorModal-select') {
         return selectVendor(param.vendorId, param.vendorNm);
+      // 타임딜 등록폼 열기
+      } else if (cmd === 'timedeal-openForm') {
+        return openTimedealForm(param);
+      // 타임딜 취소
+      } else if (cmd === 'timedeal-cancel') {
+        return cancelTimedealItem(param);
+      // 타임딜 미전환 대상상품 제거
+      } else if (cmd === 'timedeal-removeTarget') {
+        return toggleTimedealProduct(param.targetId);
       } else {
         console.warn('[handleSelectAction] unknown cmd:', cmd);
       }
@@ -151,6 +176,12 @@ window.PmEventDtl = {
             return;
         }
           return toggleProduct(result);
+      } else if (popCmd === 'cmPopup-prod-pick-timedeal') {
+        if (result == null) {
+            uiState.showTimedealProdPopup = false;
+            return;
+        }
+        return toggleTimedealProduct(result);
       } else {
         console.warn('[fnCallbackModal] unknown popCmd:', popCmd);
       }
@@ -206,6 +237,7 @@ window.PmEventDtl = {
       { id: 'banner', label: '배너이미지', icon: '🎨' },
       { id: 'info', label: '기본정보', icon: '📋' },
       { id: 'content', label: '이벤트 내용', icon: '📝' },
+      { id: 'timedeal', label: '타임딜', icon: '⚡' },
       { id: 'preview', label: '미리보기', icon: '👁' },
     ]);
     /* 이벤트 fnLoadCodes */
@@ -238,6 +270,7 @@ window.PmEventDtl = {
       if (props.active && cfIsNew.value) { _applyNewDefaults(); }
       // 마운트 시 상세 조회 — 행 클릭으로 key 변경 시 재마운트되므로 watch(reloadTrigger)만으론 최초 로드 누락됨
       await handleSearchDetail();
+      await loadTimedealItems();
     };
     onMounted(initPage);
     /* policy: re-fetch detail API whenever parent Mng increments reloadTrigger */
@@ -245,7 +278,90 @@ window.PmEventDtl = {
       if (n === o || n === 0) { return; }
       try { Object.keys(errors).forEach(k => delete errors[k]); } catch(_) {}
       await handleSearchDetail();
+      await loadTimedealItems();
     });
+
+    /* 타임딜 대상상품 (pm_event_item + rs_pool) */
+
+    /* loadTimedealItems — 이벤트에 연결된 대상상품(+타임딜 정보) 목록 로드 */
+    const loadTimedealItems = async () => {
+      if (cfIsNew.value) { timedealItems.splice(0, timedealItems.length); return; }
+      try {
+        const res = await boApiSvc.pmEventItem.getList({ eventId: cfCurId.value }, '이벤트관리', '타임딜목록조회');
+        timedealItems.splice(0, timedealItems.length, ...(res.data?.data || []));
+      } catch (e) { console.warn('[PmEventDtl.js] timedeal items load failed', e); }
+    };
+
+    /* cfTimedealRows — 상품명 조인(products 목록에서 targetId 매칭) */
+    const cfTimedealRows = computed(() => timedealItems.map(it => {
+      const p = products.find(x => x.productId === it.targetId || x.prodId === it.targetId);
+      return { ...it, prodNm: p ? (p.prodNm || p.productNm) : it.targetId };
+    }));
+
+    /* toggleTimedealProduct — 타임딜 대상상품 추가/제거 (타임딜 미등록 상태에서만 제거 가능) */
+    const toggleTimedealProduct = async (targetId) => {
+      const existing = timedealItems.find(it => it.targetId === targetId);
+      if (existing) {
+        if (existing.dealPoolId) { showToast('타임딜이 등록된 상품은 먼저 타임딜을 취소해주세요.', 'error'); return; }
+        try {
+          await boApiSvc.pmEventItem.remove(existing.eventItemId, '이벤트관리', '타임딜대상제거');
+          await loadTimedealItems();
+        } catch (err) { _afterApiErr(err); }
+        return;
+      }
+      try {
+        await boApiSvc.pmEventItem.create({
+          siteId: form.siteId, eventId: cfCurId.value, targetTypeCd: 'PRODUCT',
+          targetId, sortNo: nextId.value(timedealItems, 'sortNo'),
+        }, '이벤트관리', '타임딜대상추가');
+        await loadTimedealItems();
+      } catch (err) { _afterApiErr(err); }
+    };
+
+    /* openTimedealForm — 특정 대상상품의 SKU 목록을 불러와 타임딜 등록폼을 연다 */
+    const openTimedealForm = async (row) => {
+      Object.assign(timedealForm, {
+        eventItemId: row.eventItemId, prodId: row.targetId, prodSkuId: '',
+        dealPrice: null, totalQty: null, startDate: '', endDate: '',
+      });
+      timedealSkus.splice(0, timedealSkus.length);
+      try {
+        const res = await boApiSvc.pdProd.getSkus(row.targetId, '이벤트관리', '타임딜SKU조회');
+        timedealSkus.splice(0, timedealSkus.length, ...(res.data?.data || []));
+      } catch (e) { console.warn('[PmEventDtl.js] sku load failed', e); }
+      uiState.showTimedealForm = true;
+    };
+
+    /* submitTimedealForm — 타임딜 전환 등록 API 호출 */
+    const submitTimedealForm = async () => {
+      if (!timedealForm.prodSkuId || !timedealForm.dealPrice || !timedealForm.totalQty || !timedealForm.endDate) {
+        showToast('SKU / 특가 / 한정수량 / 종료일시를 모두 입력해주세요.', 'error');
+        return;
+      }
+      try {
+        await boApiSvc.pmEventItem.createTimedeal(cfCurId.value, timedealForm.eventItemId, {
+          prodSkuId: timedealForm.prodSkuId,
+          dealPrice: Number(timedealForm.dealPrice),
+          totalQty: Number(timedealForm.totalQty),
+          startDate: timedealForm.startDate || null,
+          endDate: timedealForm.endDate,
+        }, '이벤트관리', '타임딜등록');
+        showToast('타임딜이 등록되었습니다.', 'success');
+        uiState.showTimedealForm = false;
+        await loadTimedealItems();
+      } catch (err) { _afterApiErr(err); }
+    };
+
+    /* cancelTimedealItem — 타임딜 취소 (신규 판매만 차단, 기판매분 유지) */
+    const cancelTimedealItem = async (row) => {
+      const ok = await showConfirm('타임딜 취소', `[${row.prodNm || row.targetId}] 타임딜을 취소하시겠습니까? (이미 판매된 수량은 유지됩니다)`);
+      if (!ok) { return; }
+      try {
+        await boApiSvc.pmEventItem.cancelTimedeal(row.eventItemId, '이벤트관리', '타임딜취소');
+        showToast('타임딜이 취소되었습니다.', 'success');
+        await loadTimedealItems();
+      } catch (err) { _afterApiErr(err); }
+    };
 
     /* 대상 상품 팝업 */
 
@@ -437,6 +553,20 @@ window.PmEventDtl = {
       ] },
     ];
 
+    /* BoGrid(bare) 컬럼 정의 — 타임딜 대상상품 */
+    columns.timedealGrid = [
+      { key: 'prodNm',       label: '상품명' },
+      { key: 'dealPoolId',   label: '상태', fmt: v => v ? '⚡ 진행중' : '미등록' },
+      { key: 'dealPrice',    label: '특가', fmt: v => v ? coUtil.cofWon(v) : '-' },
+      { key: 'dealRemainQty', label: '잔여/총', fmt: (v, row) => row.dealPoolId ? `${row.dealRemainQty ?? 0} / ${row.dealTotalQty ?? 0}` : '-' },
+      { key: 'dealEndDate',  label: '종료일시', fmt: v => v || '-' },
+      { type: 'actions', actions: [
+        { label: '타임딜등록', cls: 'btn btn-primary btn-xs', visible: (row) => !row.dealPoolId, onClick: (row) => handleSelectAction('timedeal-openForm', row) },
+        { label: '타임딜취소', cls: 'btn btn-warning btn-xs', visible: (row) => !!row.dealPoolId, onClick: (row) => handleSelectAction('timedeal-cancel', row) },
+        { label: '제거',     cls: 'btn btn-danger btn-xs',  visible: (row) => !row.dealPoolId, onClick: (row) => handleSelectAction('timedeal-removeTarget', row) },
+      ] },
+    ];
+
     // ===== 폼 컬럼 정의 (BoFormArea :columns) - info 탭 (이벤트 제목/기간/상태) ==
     // 정보 영역 폼
     columns.infoForm = [
@@ -464,11 +594,14 @@ window.PmEventDtl = {
       coUtil, // 템플릿 cofAnd 접근용
       columns,
       vendors, products, form, errors, tabs,                // 상태 / 데이터
+      timedealItems, timedealSkus, timedealForm,             // 타임딜 상태 / 데이터
       handleShareKakao, handleCopyLink,                                    // 카카오톡 공유 / 링크 복사 (상세보기)
       pdfAreaRef, pdfExporting, handleExportPdf,                           // PDF 다운로드 (항상 노출)
       handleBtnAction, handleSelectAction, fnCallbackModal,                                          // dispatch (모든 이벤트 / 액션 라우팅)
-      cfIsNew, cfSaveDisabled, cfDtlMode, cfSelectedProducts, cfVisibilityOptions, cfSelectedVendorNm,                          // computed
+      cfIsNew, cfSaveDisabled, cfDtlMode, cfSelectedProducts, cfVisibilityOptions, cfSelectedVendorNm, cfTimedealRows,          // computed
       tab, tabMode2, activeContentTab, showProdPopup, showVendorModal,            // toRef
+      showTimedealProdPopup: Vue.toRef(uiState, 'showTimedealProdPopup'),
+      showTimedealForm: Vue.toRef(uiState, 'showTimedealForm'),
       showTab,                           // 헬퍼
     };
   },
@@ -577,6 +710,21 @@ window.PmEventDtl = {
         :close-click="() => handleBtnAction('content-form-close')" />
     </div>
     <!-- ===== □.□. 이벤트 내용 (HTML 에디터) ===================================== -->
+    <!-- ===== ■.■. 타임딜 ===================================================== -->
+    <div class="dtl-pane" v-show="showTab('timedeal')" style="margin:0;">
+      <div v-if="tabMode2!=='tab'" class="dtl-tab-card-title">
+        ⚡ 타임딜
+        <span class="tab-count">{{ timedealItems.length }}</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+        <button v-if="!cfDtlMode" class="btn btn-secondary" @click="handleBtnAction('prodPickTimedealModal-open')">+ 대상상품 추가</button>
+        <span style="font-size:13px;color:#888;">{{ timedealItems.length }}개 상품 · 타임딜 등록/취소는 상품별로 관리됩니다.</span>
+      </div>
+      <!-- ===== ■.■.■. 목록 영역 =============================================== -->
+      <bo-grid bare :columns="columns.timedealGrid" :rows="cfTimedealRows" row-key="eventItemId"
+        empty-text="대상상품을 먼저 추가해주세요." />
+    </div>
+    <!-- ===== □.□. 타임딜 ===================================================== -->
     <!-- ===== ■.■. 대상 상품 ================================================= -->
     <div class="dtl-pane" v-show="showTab('products')" style="margin:0;">
       <div v-if="tabMode2!=='tab'" class="dtl-tab-card-title">
@@ -645,5 +793,47 @@ window.PmEventDtl = {
 <!-- ===== ■. 상품 선택 팝업 ================================================ -->
 <bo-cm-popup-modal popup-cmd="cmPopup-prod-pick" popup-code="prod" result-type="id" :show="showProdPopup" :selected-ids="form.targetProducts" title="대상 상품 선택" :on-callback="fnCallbackModal" />
 <!-- ===== □. 상품 선택 팝업 ================================================ -->
+<!-- ===== ■. 타임딜 대상상품 선택 팝업 ======================================= -->
+<bo-cm-popup-modal popup-cmd="cmPopup-prod-pick-timedeal" popup-code="prod" result-type="id" :show="showTimedealProdPopup" :selected-ids="timedealItems.map(it => it.targetId)" title="타임딜 대상상품 선택" :on-callback="fnCallbackModal" />
+<!-- ===== □. 타임딜 대상상품 선택 팝업 ======================================= -->
+<!-- ===== ■. 타임딜 등록 폼 모달 ============================================ -->
+<bo-modal :show="showTimedealForm" title="⚡ 타임딜 등록" width="480px" @close="handleBtnAction('timedeal-form-close')">
+  <template #body>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:#666;margin-bottom:4px;">대상 SKU</label>
+        <select v-model="timedealForm.prodSkuId" class="form-control" style="width:100%;">
+          <option value="" disabled>SKU를 선택하세요</option>
+          <option v-for="s in timedealSkus" :key="s.prodSkuId" :value="s.prodSkuId">
+            {{ s.skuCode || s.prodSkuId }}{{ (s.prodOptNm1 || s.prodOptNm2) ? (' - ' + [s.prodOptNm1, s.prodOptNm2].filter(Boolean).join('/')) : '' }} (재고 {{ s.stockQty ?? 0 }})
+          </option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:#666;margin-bottom:4px;">타임딜 특가</label>
+        <input v-model="timedealForm.dealPrice" type="number" min="0" class="form-control" style="width:100%;" placeholder="특가 입력" />
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:#666;margin-bottom:4px;">한정 수량</label>
+        <input v-model="timedealForm.totalQty" type="number" min="1" class="form-control" style="width:100%;" placeholder="한정 수량 입력" />
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:700;color:#666;margin-bottom:4px;">시작일시</label>
+          <input v-model="timedealForm.startDate" type="datetime-local" class="form-control" style="width:100%;" />
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:700;color:#666;margin-bottom:4px;">종료일시</label>
+          <input v-model="timedealForm.endDate" type="datetime-local" class="form-control" style="width:100%;" />
+        </div>
+      </div>
+    </div>
+  </template>
+  <template #footer>
+    <button class="btn btn-secondary" @click="handleBtnAction('timedeal-form-close')">취소</button>
+    <button class="btn btn-primary" @click="handleBtnAction('timedeal-form-submit')">등록</button>
+  </template>
+</bo-modal>
+<!-- ===== □. 타임딜 등록 폼 모달 ============================================ -->
 `
 };
