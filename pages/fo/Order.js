@@ -8,12 +8,22 @@ window.Order = {
 
     /* ##### [01] 초기 변수 정의 ################################################## */
 
-    const { reactive, computed, onMounted, onBeforeUnmount, watch } = Vue;
+    const { reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } = Vue;
     const showToast            = window.foApp.showToast;  // 토스트 알림
     const clearCart            = window.foApp.clearCart;  // 장바구니 비우기
     const cart                 = window.foApp.cart;  // 장바구니 목록
     const modals = reactive({ isAddrSearchModal: false });   // 주소검색 모달 (카카오 우편번호, 인라인 레이어)
-    const uiState = reactive({ loading: false, error: null, view: 'order', resultData: null, selectedShipCoupon: null, cashBalance: 0, cashInput: 0, shipCouponPopup: false });
+    const uiState = reactive({ loading: false, error: null, view: 'order', resultData: null, selectedShipCoupon: null, cashBalance: 0, cashInput: 0, shipCouponPopup: false, payMethod: 'transfer' });
+
+    /* -- 토스페이먼츠 결제 (2026-09 신설) --
+     * 결제방식이 'toss' 면 결제금액(cfFinalPrice)이 0보다 클 때 위젯을 렌더링하고,
+     * [주문 완료] 클릭 시 결제창으로 리다이렉트한다. 리다이렉트 복귀(successUrl) 시
+     * 이 페이지가 다시 마운트되며 initPage 에서 콜백 파라미터를 감지해 자동 승인(confirm)한다.
+     * 승인 전에 페이지가 새로고침되므로, 승인에 필요한 주문 payload 는 localStorage 에 잠시
+     * 보관해뒀다가 승인 성공 후 복원해 최종 저장한다. */
+    const TOSS_PENDING_KEY = 'fo_pending_toss_order';
+    const toss = reactive({ mounted: false, confirming: false, containerId: 'fo-order-toss-widget-' + Math.random().toString(36).slice(2) });
+    let tossWidgetsInstance = null;
     const codes = reactive({
       dliv_req_opts: [
         { value: '문 앞에 놔주세요',    label: '문 앞에 놔주세요' },
@@ -252,38 +262,129 @@ window.Order = {
       return ok;
     };
 
-    /* handleSubmit — 처리 */
+    /* buildOrderPayload — 주문 payload 구성 (계좌이체/토스 공용) */
+    const buildOrderPayload = (orderId) => ({
+      orderId,
+      orderDate: coUtil.cofToYmd(new Date()),
+      form: { ...form },
+      payMethod: uiState.payMethod,
+      items: cfOrderItems.value.map((i, idx) => ({
+        prodId:   i.prod.prodId,
+        prodNm: i.prod.prodNm,
+        image:       i.prod.image,
+        color: i.color.name, size: i.size, qty: i.qty,
+        price:    parsePrice(i.prod.price) * i.qty,
+        coupon:   selectedCoupons[idx]?.name || null,
+        discount: calcCouponDiscount(selectedCoupons[idx], i),
+      })),
+      shippingCoupon:     uiState.selectedShipCoupon?.name || null,
+      cartTotal:          cfCartTotal.value,
+      couponDiscount:     cfTotalCouponDiscount.value,
+      cashUsed:           cfAppliedCash.value,
+      finalPrice:         cfFinalPrice.value,
+    });
+
+    /* finalizeOrder — 주문 최종 저장 + 결과화면 전환 (결제 승인 후, 또는 계좌이체는 즉시) */
+    const finalizeOrder = async (payload) => {
+      if (typeof foApiSvc !== 'undefined') { await foApiSvc.myOrder.create(payload, '주문', '저장').catch(() => {}); }
+      uiState.resultData = payload;
+      uiState.view = 'result';
+      if (!window.foApp.instantOrder) clearCart(); // 바로구매는 장바구니 건드리지 않음
+      uiState.cashBalance = Math.max(0, uiState.cashBalance - (payload.cashUsed || 0));
+    };
+
+    /* handleSubmit — 처리. 토스 결제(금액>0)면 결제창으로 리다이렉트, 그 외(계좌이체/전액할인)는 즉시 저장 */
     const handleSubmit = async () => {
       if (!validate()) { return; }
       uiState.submitting = true;
       try {
         const orderId = 'ORD-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5);
-        const payload = {
-          orderId,
-          orderDate: coUtil.cofToYmd(new Date()),
-          form: { ...form },
-          items: cfOrderItems.value.map((i, idx) => ({
-            prodId:   i.prod.prodId,
-            prodNm: i.prod.prodNm,
-            image:       i.prod.image,
-            color: i.color.name, size: i.size, qty: i.qty,
-            price:    parsePrice(i.prod.price) * i.qty,
-            coupon:   selectedCoupons[idx]?.name || null,
-            discount: calcCouponDiscount(selectedCoupons[idx], i),
-          })),
-          shippingCoupon:     uiState.selectedShipCoupon?.name || null,
-          cartTotal:          cfCartTotal.value,
-          couponDiscount:     cfTotalCouponDiscount.value,
-          cashUsed:           cfAppliedCash.value,
-          finalPrice:         cfFinalPrice.value,
-        };
-        if (typeof foApiSvc !== 'undefined') { await foApiSvc.myOrder.create(payload, '주문', '저장').catch(() => {}); }
-        uiState.resultData = payload;
-        uiState.view = 'result';
-        if (!window.foApp.instantOrder) clearCart(); // 바로구매는 장바구니 건드리지 않음
-        uiState.cashBalance = Math.max(0, uiState.cashBalance - cfAppliedCash.value);
+        const payload = buildOrderPayload(orderId);
+
+        if (uiState.payMethod === 'toss' && cfFinalPrice.value > 0) {
+          if (!tossWidgetsInstance) { showToast('결제위젯을 불러오는 중입니다. 잠시 후 다시 시도해주세요.', 'error'); return; }
+          try { localStorage.setItem(TOSS_PENDING_KEY, JSON.stringify(payload)); } catch (_) {}
+          const origin = window.location.origin + window.location.pathname;
+          await tossWidgetsInstance.requestPayment({
+            orderId,
+            orderName: cfOrderItems.value[0]?.prod.prodNm + (cfOrderItems.value.length > 1 ? ` 외 ${cfOrderItems.value.length - 1}건` : ''),
+            customerName: form.name,
+            customerEmail: form.email,
+            successUrl: origin + '?page=order&callback_pay_toss_succ=1',
+            failUrl:    origin + '?page=order&callback_pay_toss_fail=1',
+          });
+          // 정상 흐름이면 여기서 브라우저가 토스 결제창으로 이동 — 이후 코드 실행 안 됨
+          return;
+        }
+
+        await finalizeOrder(payload);
+      } catch (e) {
+        showToast('결제 요청 중 오류가 발생했습니다: ' + (e.message || e), 'error', 0);
       } finally { uiState.submitting = false; }
     };
+
+    /* mountTossWidget — 결제방식이 'toss'로 바뀌거나 금액이 바뀔 때 위젯(재)렌더링 */
+    const mountTossWidget = async () => {
+      if (cfFinalPrice.value <= 0) return; // 전액 할인/캐시결제면 위젯 불필요
+      try {
+        const customerKey = window.foAuth?.state?.user?.memberId || ('GUEST_' + Date.now());
+        tossWidgetsInstance = await coExtSdk.getTossPaymentWidgets(customerKey);
+        await tossWidgetsInstance.setAmount({ currency: 'KRW', value: Number(cfFinalPrice.value) });
+        await nextTick();
+        await tossWidgetsInstance.renderPaymentMethods({ selector: '#' + toss.containerId, variantKey: 'DEFAULT' });
+        toss.mounted = true;
+      } catch (e) {
+        toss.mounted = false;
+        showToast('결제위젯을 불러오지 못했습니다: ' + (e.message || e), 'error', 0);
+      }
+    };
+
+    /* handleTossCallback — successUrl/failUrl 복귀 감지 후 자동 승인 처리 */
+    const handleTossCallback = async () => {
+      const q = new URLSearchParams(window.location.search || '');
+      const cleanUrl = window.location.origin + window.location.pathname + '?page=order';
+
+      if (q.get('callback_pay_toss_fail') === '1') {
+        history.replaceState(null, '', cleanUrl);
+        showToast('결제가 취소되었거나 실패했습니다.', 'error', 0);
+        try { localStorage.removeItem(TOSS_PENDING_KEY); } catch (_) {}
+        return;
+      }
+      if (q.get('callback_pay_toss_succ') !== '1') return;
+
+      const paymentKey = q.get('paymentKey');
+      const orderId    = q.get('orderId');
+      const amount     = Number(q.get('amount'));
+      history.replaceState(null, '', cleanUrl);
+      if (!paymentKey || !orderId || !amount) return;
+
+      toss.confirming = true;
+      uiState.submitting = true;
+      try {
+        // ── 재고/타임딜 확인이 결제 확정보다 먼저 이뤄져야 하지만, ecFeBo는 아직 실제
+        // od_order_item 생성 API 연동 전(주문 payload 저장만 함)이라 지금은 confirm만 수행한다.
+        // ecFeFoNuxt4 checkout/success.vue 의 "재고확인→결제확정" 순서 정책을 이후 이 화면에도
+        // 동일 적용할 것(실 재고차감 API 연동 시).
+        await foApiSvc.tossPay.confirm({ paymentKey, orderId, amount }, '주문', '토스결제승인');
+        let payload = null;
+        try { payload = JSON.parse(localStorage.getItem(TOSS_PENDING_KEY) || 'null'); } catch (_) {}
+        localStorage.removeItem(TOSS_PENDING_KEY);
+        if (!payload || payload.orderId !== orderId) {
+          showToast('결제는 승인되었으나 주문 정보를 복원하지 못했습니다. 고객센터로 문의해주세요.', 'error', 0);
+          return;
+        }
+        await finalizeOrder(payload);
+        showToast('결제가 완료되었습니다.', 'success');
+      } catch (e) {
+        showToast('결제 승인에 실패했습니다: ' + (coUtil.cofErrMsg ? coUtil.cofErrMsg(e) : (e.message || e)), 'error', 0);
+      } finally {
+        toss.confirming = false;
+        uiState.submitting = false;
+      }
+    };
+
+    watch(() => uiState.payMethod, (v) => { if (v === 'toss') mountTossWidget(); });
+    watch(cfFinalPrice, () => { if (uiState.payMethod === 'toss') mountTossWidget(); });
 
     /* handleDevAutofill — (요청사항: "화면마다 값적용 편하게 할거야") 헤더 설정(⚙) 드롭다운의
        "(개발) 값적용 [1][2][3]" 클릭 시 전역으로 오는 fo-dev-autofill 이벤트를 받아 주문자
@@ -301,6 +402,7 @@ window.Order = {
     /* initPage — 화면 로드 시퀀스. 마운트 시 실행한다. */
     const initPage = async () => {
       handleSearchData();
+      handleTossCallback(); // 토스 결제 successUrl/failUrl 복귀 감지(있을 때만 동작)
       window.addEventListener('fo-dev-autofill', handleDevAutofill);
     };
     onMounted(initPage);
@@ -340,6 +442,7 @@ window.Order = {
       parsePrice, fmt, // 헬퍼
       productCoupons, discountLabel, calcCouponDiscount,            // 쿠폰
       couponPopup, selectedCoupons, // 쿠폰 상태
+      toss, // 토스 결제위젯 상태
       config: window.SITE_CONFIG || {},
     };
   },
@@ -699,9 +802,19 @@ window.Order = {
       <!-- ===== ■.■.■.■. 결제 안내 ============================================= -->
       <fo-container card-style="padding:clamp(16px,3vw,28px);">
         <h2 style="font-size:1rem;font-weight:700;margin-bottom:18px;color:var(--text-primary);">
-          💳 결제 안내 (계좌이체)
+          💳 결제 방법
         </h2>
-        <div style="display:flex;flex-direction:column;gap:4px;">
+        <!-- ===== ■.■.■.■.■. 결제수단 선택 (계좌이체 / 토스) ========================= -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <label :style="{ flex:1, textAlign:'center', padding:'10px', border:'1.5px solid ' + (uiState.payMethod==='transfer' ? 'var(--text-primary)' : 'var(--border)'), borderRadius:'8px', cursor:'pointer', fontSize:'0.85rem', fontWeight: uiState.payMethod==='transfer'?700:500 }">
+            <input type="radio" value="transfer" v-model="uiState.payMethod" style="margin-right:6px;" /> 계좌이체
+          </label>
+          <label :style="{ flex:1, textAlign:'center', padding:'10px', border:'1.5px solid ' + (uiState.payMethod==='toss' ? 'var(--text-primary)' : 'var(--border)'), borderRadius:'8px', cursor:'pointer', fontSize:'0.85rem', fontWeight: uiState.payMethod==='toss'?700:500 }">
+            <input type="radio" value="toss" v-model="uiState.payMethod" style="margin-right:6px;" /> 💳 카드/간편결제 (토스)
+          </label>
+        </div>
+        <!-- ===== ■.■.■.■.■. 계좌이체 안내 ============================================ -->
+        <div v-if="uiState.payMethod==='transfer'" style="display:flex;flex-direction:column;gap:4px;">
           <div class="info-row">
             <span class="info-icon">
               1️⃣
@@ -758,6 +871,21 @@ window.Order = {
             </div>
           </div>
         </div>
+        </div>
+        <!-- ===== □.□.□.□.□. 계좌이체 안내 ============================================ -->
+        <!-- ===== ■.■.■.■.■. 토스 결제위젯 ============================================ -->
+        <div v-else style="margin-bottom:8px;">
+          <div v-if="cfFinalPrice <= 0" style="padding:14px;background:var(--bg-base);border-radius:8px;font-size:0.85rem;color:var(--text-muted);text-align:center;">
+            할인/캐시로 전액 결제되어 별도 카드결제가 필요하지 않습니다.
+          </div>
+          <template v-else>
+            <div :id="toss.containerId"></div>
+            <div v-if="!toss.mounted" style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.82rem;">
+              결제위젯을 불러오는 중...
+            </div>
+          </template>
+        </div>
+        <!-- ===== □.□.□.□.□. 토스 결제위젯 ============================================ -->
         <!-- ===== ■.■.■.■.■.■. 배송비 + 배송비 쿠폰 선택 =============================== -->
         <div class="info-row" style="align-items:flex-start;">
           <span class="info-icon">

@@ -164,7 +164,7 @@ window.Cart={name:"Cart",props:{navigate:{type:Function,required:!0}},emits:[],s
             \uC8FC\uBB38\uD558\uAE30 ({{ cfOrderCount }}\uAC1C)
           </button>
           <p style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:10px;">
-            \uACC4\uC88C\uC774\uCCB4\uB85C \uC548\uC804\uD558\uAC8C \uACB0\uC81C
+            \u{1F4B3} \uD1A0\uC2A4 \uCE74\uB4DC\uACB0\uC81C \xB7 \uACC4\uC88C\uC774\uCCB4 \uC911 \uC120\uD0DD \uAC00\uB2A5
           </p>
         </fo-container>
       </div>

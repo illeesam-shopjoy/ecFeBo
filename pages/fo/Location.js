@@ -26,6 +26,9 @@ window.LocationPage = {
        (예전: v-if="mapProvider==='kakao_sdk'" 라 정작 지도를 만들기 전엔 그 div 자체가
         DOM 에 없어 getElementById 가 항상 null → new maps.Map() 이 아예 실행되지 않았음) */
     const mapEl = ref(null);
+    /* naverMapEl — 네이버 SDK 지도 컨테이너 (2026-09 추가, 카카오와 동일 v-show 패턴) */
+    const naverMapEl = ref(null);
+    let naverMapInstance = null;
 
 
     /* ##### [02] 액션 모음 (dispatch) ############################################## */
@@ -77,6 +80,56 @@ window.LocationPage = {
       }
     };
 
+    /* initKakaoSdk — 카카오 SDK 지도 렌더 시도. 성공 시 true, 실패 시 false */
+    const initKakaoSdk = async () => {
+      try {
+        const maps = await coExtSdk.loadKakaoMap();
+        const el = mapEl.value;
+        if (!el) return false;
+        if (typeof maps.Map !== 'function' || typeof maps.LatLng !== 'function') {
+          throw new Error('Kakao Maps 생성자를 사용할 수 없습니다 (JS 키 도메인 등록 확인 필요).');
+        }
+        const kakaoMap = new maps.Map(el, { center: new maps.LatLng(LAT, LNG), level: 4 });
+        new maps.Marker({ map: kakaoMap, position: new maps.LatLng(LAT, LNG), title: 'ShopJoy 본사' });
+        return true;
+      } catch (err) { return false; }
+    };
+
+    /* initNaverSdk — 네이버 SDK 지도 렌더 시도(2026-09 추가). 성공 시 true, 실패 시 false */
+    const initNaverSdk = async () => {
+      try {
+        const maps = await coExtSdk.loadNaverMap();
+        const el = naverMapEl.value;
+        if (!el) return false;
+        if (typeof maps.Map !== 'function' || typeof maps.LatLng !== 'function') {
+          throw new Error('Naver Maps 생성자를 사용할 수 없습니다 (Client ID 도메인 등록 확인 필요).');
+        }
+        const center = new maps.LatLng(LAT, LNG);
+        naverMapInstance = new maps.Map(el, { center, zoom: 16 });
+        new maps.Marker({ map: naverMapInstance, position: center, title: 'ShopJoy 본사' });
+        return true;
+      } catch (err) { return false; }
+    };
+
+    /* switchProvider — 지도 제공자 수동 전환(2026-09 추가). SDK 지도는 컨테이너가 DOM에
+       있어야 생성 가능하므로 v-show 로 먼저 전환한 뒤(nextTick) 초기화한다. */
+    const switchProvider = async (p) => {
+      uiState.mapError = false;
+      if (p === 'kakao') {
+        uiState.mapProvider = 'kakao_sdk';
+        await Vue.nextTick();
+        if (!(await initKakaoSdk())) { uiState.mapProvider = 'google'; uiState.mapSrc = PROVIDERS.google; }
+      } else if (p === 'naver') {
+        uiState.mapProvider = 'naver_sdk';
+        await Vue.nextTick();
+        if (naverMapInstance) return; // 이미 생성됨 — 재생성 불필요
+        if (!(await initNaverSdk())) { uiState.mapProvider = 'google'; uiState.mapSrc = PROVIDERS.google; }
+      } else {
+        uiState.mapProvider = 'google';
+        uiState.mapSrc = PROVIDERS.google;
+      }
+    };
+
     // ★ onMounted
     /* initPage — 화면 로드 시퀀스. 마운트 시 실행한다.
        지도 키는 coExtSdk.loadKakaoMap() 이 foAppStore.svKakaoMapJsKey 에서 읽는다.
@@ -84,34 +137,15 @@ window.LocationPage = {
         appKey 가 항상 '' → 카카오 지도가 뜬 적이 없고 늘 Google embed 로 빠졌다.)
        키가 없거나 로드 실패면 기존대로 Google embed 로 폴백한다. */
     const initPage = async () => {
-      const fnFallbackGoogle = () => {
-        uiState.mapProvider = 'google';
-        uiState.mapSrc = PROVIDERS.google;
-      };
-      try {
-        const maps = await coExtSdk.loadKakaoMap();
-        const el = mapEl.value;
-        if (!el) { fnFallbackGoogle(); return; }
-        /* 도메인이 카카오 개발자콘솔에 등록 안 돼 있으면 스크립트는 로드되지만 Map/LatLng
-           이 진짜 생성자가 아니어서 new 호출 시 "Illegal constructor" 가 터진다 — 미리
-           검증해서 catch 로 안전하게 폴백(2026-09-06, 실크래시 원인). */
-        if (typeof maps.Map !== 'function' || typeof maps.LatLng !== 'function') {
-          throw new Error('Kakao Maps 생성자를 사용할 수 없습니다 (JS 키 도메인 등록 확인 필요).');
-        }
-        const kakaoMap = new maps.Map(el, { center: new maps.LatLng(LAT, LNG), level: 4 });
-        new maps.Marker({ map: kakaoMap, position: new maps.LatLng(LAT, LNG), title: 'ShopJoy 본사' });
-        uiState.mapProvider = 'kakao_sdk';
-      } catch (err) {
-        fnFallbackGoogle();
-      }
+      await switchProvider('kakao'); // 기본 제공자 — 실패 시 switchProvider 내부에서 구글로 자동 폴백
     };
     onMounted(initPage);
 
     /* ##### [06] return (템플릿 노출) ############################################## */
 
     return {
-      uiState, mapEl,       // 상태
-      handleBtnAction, // dispatch
+      uiState, mapEl, naverMapEl,       // 상태
+      handleBtnAction, switchProvider, // dispatch
       onMapError, // 이벤트
       kakaoLink, naverLink, googleLink, ADDR, // 데이터
     };
@@ -123,6 +157,31 @@ window.LocationPage = {
   banner-align="center 40%"
   :crumbs="[{ label:'홈', page:'home' }, { label:'위치안내' }]"
   @nav="() => handleBtnAction('page-goHome')">
+  <!-- ===== ■. 지도 제공자 전환 (2026-09 추가 — 카카오/네이버/구글 직접 선택) ============ -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <button @click="switchProvider('kakao')" type="button"
+      :style="{ padding:'7px 16px', borderRadius:'6px', fontSize:'0.8rem', fontWeight:700, cursor:'pointer',
+      border: uiState.mapProvider==='kakao_sdk' ? '1.5px solid #FEE500' : '1px solid var(--border)',
+      background: uiState.mapProvider==='kakao_sdk' ? '#FEE500' : 'var(--bg-card)',
+      color: uiState.mapProvider==='kakao_sdk' ? '#3c1e1e' : 'var(--text-secondary)' }">
+      🗺 카카오맵
+    </button>
+    <button @click="switchProvider('naver')" type="button"
+      :style="{ padding:'7px 16px', borderRadius:'6px', fontSize:'0.8rem', fontWeight:700, cursor:'pointer',
+      border: uiState.mapProvider==='naver_sdk' ? '1.5px solid #03C75A' : '1px solid var(--border)',
+      background: uiState.mapProvider==='naver_sdk' ? '#03C75A' : 'var(--bg-card)',
+      color: uiState.mapProvider==='naver_sdk' ? '#fff' : 'var(--text-secondary)' }">
+      🗺 네이버지도
+    </button>
+    <button @click="switchProvider('google')" type="button"
+      :style="{ padding:'7px 16px', borderRadius:'6px', fontSize:'0.8rem', fontWeight:700, cursor:'pointer',
+      border: uiState.mapProvider==='google' ? '1.5px solid #4285F4' : '1px solid var(--border)',
+      background: uiState.mapProvider==='google' ? '#4285F4' : 'var(--bg-card)',
+      color: uiState.mapProvider==='google' ? '#fff' : 'var(--text-secondary)' }">
+      🗺 구글지도
+    </button>
+  </div>
+  <!-- ===== □. 지도 제공자 전환 ============================================= -->
   <!-- ===== ■. 지도 영역 =================================================== -->
   <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;">
     <!-- ===== ■.■. 카카오 SDK 모드: div 컨테이너 (항상 DOM에 존재 — v-show. 2026-09-06,
@@ -133,7 +192,13 @@ window.LocationPage = {
       style="width:100%;height:clamp(220px,40vw,320px);">
     </div>
     <!-- ===== □.□. 카카오 SDK 모드: div 컨테이너 ================================== -->
-    <template v-if="uiState.mapProvider!=='kakao_sdk'">
+    <!-- ===== ■.■. 네이버 SDK 모드: div 컨테이너 (2026-09 추가, 카카오와 동일 v-show 패턴) === -->
+    <div v-show="uiState.mapProvider==='naver_sdk'"
+      id="shopjoy-naver-map" ref="naverMapEl"
+      style="width:100%;height:clamp(220px,40vw,320px);">
+    </div>
+    <!-- ===== □.□. 네이버 SDK 모드: div 컨테이너 ================================== -->
+    <template v-if="uiState.mapProvider!=='kakao_sdk' && uiState.mapProvider!=='naver_sdk'">
       <!-- ===== ■.■. iframe 모드 (Google / OSM) ============================== -->
       <iframe v-if="!uiState.mapError ? uiState.mapSrc : false" :src="uiState.mapSrc" width="100%" style="border:0;display:block;height:clamp(220px,40vw,320px);" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" @error="onMapError">
     </iframe>

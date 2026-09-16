@@ -8,8 +8,47 @@ window.About = {
 
     /* ##### [01] 초기 변수 정의 ################################################## */
 
-    const { reactive, watch, onMounted } = Vue;
-    const uiState = reactive({ loading: false, error: null });
+    const { reactive, ref, watch, onMounted, nextTick } = Vue;
+    const uiState = reactive({ loading: false, error: null, mapProvider: '', mapSrc: '' });
+
+    /* -- 오시는 길 지도 (2026-09 추가, Location.js 와 동일 좌표/패턴) -- */
+    const mapEl = ref(null);
+    const naverMapEl = ref(null);
+    let naverMapInstance = null;
+    const LAT = 37.4407;
+    const LNG = 127.1468;
+    const ADDR_ENC = encodeURIComponent('경기도 성남시 중원구 성남대로 997번길 49-14');
+    const MAP_PROVIDERS = {
+      google: `https://maps.google.com/maps?q=${ADDR_ENC}&output=embed&hl=ko&z=17`,
+    };
+
+    /* switchMapProvider — 카카오/네이버 SDK 지도 또는 구글 iframe 으로 전환 */
+    const switchMapProvider = async (p) => {
+      if (p === 'kakao') {
+        uiState.mapProvider = 'kakao_sdk';
+        await nextTick();
+        try {
+          const maps = await coExtSdk.loadKakaoMap();
+          if (!mapEl.value || typeof maps.Map !== 'function') throw new Error('kakao map unavailable');
+          const map = new maps.Map(mapEl.value, { center: new maps.LatLng(LAT, LNG), level: 4 });
+          new maps.Marker({ map, position: new maps.LatLng(LAT, LNG) });
+        } catch (_) { uiState.mapProvider = 'google'; uiState.mapSrc = MAP_PROVIDERS.google; }
+      } else if (p === 'naver') {
+        uiState.mapProvider = 'naver_sdk';
+        await nextTick();
+        if (naverMapInstance) return;
+        try {
+          const maps = await coExtSdk.loadNaverMap();
+          if (!naverMapEl.value || typeof maps.Map !== 'function') throw new Error('naver map unavailable');
+          const center = new maps.LatLng(LAT, LNG);
+          naverMapInstance = new maps.Map(naverMapEl.value, { center, zoom: 16 });
+          new maps.Marker({ map: naverMapInstance, position: center });
+        } catch (_) { uiState.mapProvider = 'google'; uiState.mapSrc = MAP_PROVIDERS.google; }
+      } else {
+        uiState.mapProvider = 'google';
+        uiState.mapSrc = MAP_PROVIDERS.google;
+      }
+    };
 
 
     /* ##### [02] 액션 모음 (dispatch) ############################################## */
@@ -27,7 +66,7 @@ window.About = {
 
     /* ##### [03] 초기 함수 (마운트 / 코드 로드 / watch) ############################## */
 
-
+    onMounted(() => switchMapProvider('kakao'));
 
     /* ##### [05] 사용자 함수 (헬퍼 / 정적 데이터) ################################# */
 
@@ -60,6 +99,7 @@ window.About = {
     return {
       handleBtnAction, // dispatch
       values, history, bizInfo, // 데이터
+      uiState, mapEl, naverMapEl, switchMapProvider, // 오시는 길 지도
     };
   },
   template: /* html */ `
@@ -219,6 +259,41 @@ window.About = {
       통신판매업자는 거래에 관한 약관, 청약철회 가능여부, 배송비, 교환·환불·보증 조건 및 품질보증기준에 따라 상거래를 운영합니다.
     </div>
   </div>
+  <!-- ===== ■. 오시는 길 (2026-09 추가 — Location.js 와 동일 지도 패턴) ================== -->
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:24px;">
+    <div style="padding:16px 20px 0;font-size:1rem;font-weight:800;color:var(--text-primary);">
+      🗺️ 오시는 길
+    </div>
+    <div style="display:flex;gap:6px;padding:12px 20px 0;">
+      <button @click="switchMapProvider('kakao')" type="button"
+        :style="{ padding:'6px 14px', borderRadius:'6px', fontSize:'0.78rem', fontWeight:700, cursor:'pointer',
+        border: uiState.mapProvider==='kakao_sdk' ? '1.5px solid #FEE500' : '1px solid var(--border)',
+        background: uiState.mapProvider==='kakao_sdk' ? '#FEE500' : 'var(--bg-base)',
+        color: uiState.mapProvider==='kakao_sdk' ? '#3c1e1e' : 'var(--text-secondary)' }">
+        카카오맵
+      </button>
+      <button @click="switchMapProvider('naver')" type="button"
+        :style="{ padding:'6px 14px', borderRadius:'6px', fontSize:'0.78rem', fontWeight:700, cursor:'pointer',
+        border: uiState.mapProvider==='naver_sdk' ? '1.5px solid #03C75A' : '1px solid var(--border)',
+        background: uiState.mapProvider==='naver_sdk' ? '#03C75A' : 'var(--bg-base)',
+        color: uiState.mapProvider==='naver_sdk' ? '#fff' : 'var(--text-secondary)' }">
+        네이버지도
+      </button>
+      <button @click="switchMapProvider('google')" type="button"
+        :style="{ padding:'6px 14px', borderRadius:'6px', fontSize:'0.78rem', fontWeight:700, cursor:'pointer',
+        border: uiState.mapProvider==='google' ? '1.5px solid #4285F4' : '1px solid var(--border)',
+        background: uiState.mapProvider==='google' ? '#4285F4' : 'var(--bg-base)',
+        color: uiState.mapProvider==='google' ? '#fff' : 'var(--text-secondary)' }">
+        구글지도
+      </button>
+    </div>
+    <div style="margin-top:12px;">
+      <div v-show="uiState.mapProvider==='kakao_sdk'" ref="mapEl" style="width:100%;height:clamp(200px,32vw,280px);"></div>
+      <div v-show="uiState.mapProvider==='naver_sdk'" ref="naverMapEl" style="width:100%;height:clamp(200px,32vw,280px);"></div>
+      <iframe v-if="uiState.mapProvider==='google'" :src="uiState.mapSrc" width="100%" style="border:0;display:block;height:clamp(200px,32vw,280px);" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
+  <!-- ===== □. 오시는 길 ==================================================== -->
 </fo-page>
 <!-- ===== □. 사업자 정보 ================================================== -->
 `

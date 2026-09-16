@@ -371,7 +371,7 @@ window.Cart = {
             주문하기 ({{ cfOrderCount }}개)
           </button>
           <p style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:10px;">
-            계좌이체로 안전하게 결제
+            💳 토스 카드결제 · 계좌이체 중 선택 가능
           </p>
         </fo-container>
       </div>

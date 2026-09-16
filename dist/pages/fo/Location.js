@@ -1,9 +1,34 @@
-window.LocationPage={name:"LocationPage",props:{navigate:{type:Function,required:!0}},setup(p){const{reactive:c,ref:v,onMounted:g,watch:h}=Vue,t=c({loading:!1,error:null,mapProvider:"kakao",mapSrc:""}),n=v(null),m=(r,e={})=>{if(r==="page-goHome")return p.navigate("home");console.warn("[handleBtnAction] unknown cmd:",r)},a=37.4407,i=127.1468,s="\uACBD\uAE30\uB3C4 \uC131\uB0A8\uC2DC \uC911\uC6D0\uAD6C \uC131\uB0A8\uB300\uB85C 997\uBC88\uAE38 49-14",o=encodeURIComponent(s),d={kakao:`https://map.kakao.com/link/map/ShopJoy,${a},${i}`,google:`https://maps.google.com/maps?q=${o}&output=embed&hl=ko&z=17`,osm:`https://www.openstreetmap.org/export/embed.html?bbox=${i-.008}%2C${a-.005}%2C${i+.008}%2C${a+.005}&layer=mapnik&marker=${a}%2C${i}`},f=`https://map.kakao.com/link/map/ShopJoy,${a},${i}`,x=`https://map.naver.com/v5/search/${o}`,y=`https://maps.google.com/maps?q=${o}`,b=()=>{t.mapProvider==="google"?(t.mapProvider="osm",t.mapSrc=d.osm):t.mapError=!0};return g(async()=>{const r=()=>{t.mapProvider="google",t.mapSrc=d.google};try{const e=await coExtSdk.loadKakaoMap(),l=n.value;if(!l){r();return}if(typeof e.Map!="function"||typeof e.LatLng!="function")throw new Error("Kakao Maps \uC0DD\uC131\uC790\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 (JS \uD0A4 \uB3C4\uBA54\uC778 \uB4F1\uB85D \uD655\uC778 \uD544\uC694).");const u=new e.Map(l,{center:new e.LatLng(a,i),level:4});new e.Marker({map:u,position:new e.LatLng(a,i),title:"ShopJoy \uBCF8\uC0AC"}),t.mapProvider="kakao_sdk"}catch{r()}}),{uiState:t,mapEl:n,handleBtnAction:m,onMapError:b,kakaoLink:f,naverLink:x,googleLink:y,ADDR:s}},template:`
+window.LocationPage={name:"LocationPage",props:{navigate:{type:Function,required:!0}},setup(m){const{reactive:f,ref:p,onMounted:x,watch:z}=Vue,t=f({loading:!1,error:null,mapProvider:"kakao",mapSrc:""}),l=p(null),c=p(null);let d=null;const y=(e,i={})=>{if(e==="page-goHome")return m.navigate("home");console.warn("[handleBtnAction] unknown cmd:",e)},a=37.4407,r=127.1468,v="\uACBD\uAE30\uB3C4 \uC131\uB0A8\uC2DC \uC911\uC6D0\uAD6C \uC131\uB0A8\uB300\uB85C 997\uBC88\uAE38 49-14",s=encodeURIComponent(v),o={kakao:`https://map.kakao.com/link/map/ShopJoy,${a},${r}`,google:`https://maps.google.com/maps?q=${s}&output=embed&hl=ko&z=17`,osm:`https://www.openstreetmap.org/export/embed.html?bbox=${r-.008}%2C${a-.005}%2C${r+.008}%2C${a+.005}&layer=mapnik&marker=${a}%2C${r}`},u=`https://map.kakao.com/link/map/ShopJoy,${a},${r}`,b=`https://map.naver.com/v5/search/${s}`,h=`https://maps.google.com/maps?q=${s}`,k=()=>{t.mapProvider==="google"?(t.mapProvider="osm",t.mapSrc=o.osm):t.mapError=!0},w=async()=>{try{const e=await coExtSdk.loadKakaoMap(),i=l.value;if(!i)return!1;if(typeof e.Map!="function"||typeof e.LatLng!="function")throw new Error("Kakao Maps \uC0DD\uC131\uC790\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 (JS \uD0A4 \uB3C4\uBA54\uC778 \uB4F1\uB85D \uD655\uC778 \uD544\uC694).");const n=new e.Map(i,{center:new e.LatLng(a,r),level:4});return new e.Marker({map:n,position:new e.LatLng(a,r),title:"ShopJoy \uBCF8\uC0AC"}),!0}catch{return!1}},S=async()=>{try{const e=await coExtSdk.loadNaverMap(),i=c.value;if(!i)return!1;if(typeof e.Map!="function"||typeof e.LatLng!="function")throw new Error("Naver Maps \uC0DD\uC131\uC790\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4 (Client ID \uB3C4\uBA54\uC778 \uB4F1\uB85D \uD655\uC778 \uD544\uC694).");const n=new e.LatLng(a,r);return d=new e.Map(i,{center:n,zoom:16}),new e.Marker({map:d,position:n,title:"ShopJoy \uBCF8\uC0AC"}),!0}catch{return!1}},g=async e=>{if(t.mapError=!1,e==="kakao")t.mapProvider="kakao_sdk",await Vue.nextTick(),await w()||(t.mapProvider="google",t.mapSrc=o.google);else if(e==="naver"){if(t.mapProvider="naver_sdk",await Vue.nextTick(),d)return;await S()||(t.mapProvider="google",t.mapSrc=o.google)}else t.mapProvider="google",t.mapSrc=o.google};return x(async()=>{await g("kakao")}),{uiState:t,mapEl:l,naverMapEl:c,handleBtnAction:y,switchProvider:g,onMapError:k,kakaoLink:u,naverLink:b,googleLink:h,ADDR:v}},template:`
 <fo-page title="\uC704\uCE58\uC548\uB0B4" eyebrow="About"
   banner-img="assets/cdn/prod/img/page-title/page-title-1.jpg"
   banner-align="center 40%"
   :crumbs="[{ label:'\uD648', page:'home' }, { label:'\uC704\uCE58\uC548\uB0B4' }]"
   @nav="() => handleBtnAction('page-goHome')">
+  <!-- ===== \u25A0. \uC9C0\uB3C4 \uC81C\uACF5\uC790 \uC804\uD658 (2026-09 \uCD94\uAC00 \u2014 \uCE74\uCE74\uC624/\uB124\uC774\uBC84/\uAD6C\uAE00 \uC9C1\uC811 \uC120\uD0DD) ============ -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;">
+    <button @click="switchProvider('kakao')" type="button"
+      :style="{ padding:'7px 16px', borderRadius:'6px', fontSize:'0.8rem', fontWeight:700, cursor:'pointer',
+      border: uiState.mapProvider==='kakao_sdk' ? '1.5px solid #FEE500' : '1px solid var(--border)',
+      background: uiState.mapProvider==='kakao_sdk' ? '#FEE500' : 'var(--bg-card)',
+      color: uiState.mapProvider==='kakao_sdk' ? '#3c1e1e' : 'var(--text-secondary)' }">
+      \u{1F5FA} \uCE74\uCE74\uC624\uB9F5
+    </button>
+    <button @click="switchProvider('naver')" type="button"
+      :style="{ padding:'7px 16px', borderRadius:'6px', fontSize:'0.8rem', fontWeight:700, cursor:'pointer',
+      border: uiState.mapProvider==='naver_sdk' ? '1.5px solid #03C75A' : '1px solid var(--border)',
+      background: uiState.mapProvider==='naver_sdk' ? '#03C75A' : 'var(--bg-card)',
+      color: uiState.mapProvider==='naver_sdk' ? '#fff' : 'var(--text-secondary)' }">
+      \u{1F5FA} \uB124\uC774\uBC84\uC9C0\uB3C4
+    </button>
+    <button @click="switchProvider('google')" type="button"
+      :style="{ padding:'7px 16px', borderRadius:'6px', fontSize:'0.8rem', fontWeight:700, cursor:'pointer',
+      border: uiState.mapProvider==='google' ? '1.5px solid #4285F4' : '1px solid var(--border)',
+      background: uiState.mapProvider==='google' ? '#4285F4' : 'var(--bg-card)',
+      color: uiState.mapProvider==='google' ? '#fff' : 'var(--text-secondary)' }">
+      \u{1F5FA} \uAD6C\uAE00\uC9C0\uB3C4
+    </button>
+  </div>
+  <!-- ===== \u25A1. \uC9C0\uB3C4 \uC81C\uACF5\uC790 \uC804\uD658 ============================================= -->
   <!-- ===== \u25A0. \uC9C0\uB3C4 \uC601\uC5ED =================================================== -->
   <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;">
     <!-- ===== \u25A0.\u25A0. \uCE74\uCE74\uC624 SDK \uBAA8\uB4DC: div \uCEE8\uD14C\uC774\uB108 (\uD56D\uC0C1 DOM\uC5D0 \uC874\uC7AC \u2014 v-show. 2026-09-06,
@@ -14,7 +39,13 @@ window.LocationPage={name:"LocationPage",props:{navigate:{type:Function,required
       style="width:100%;height:clamp(220px,40vw,320px);">
     </div>
     <!-- ===== \u25A1.\u25A1. \uCE74\uCE74\uC624 SDK \uBAA8\uB4DC: div \uCEE8\uD14C\uC774\uB108 ================================== -->
-    <template v-if="uiState.mapProvider!=='kakao_sdk'">
+    <!-- ===== \u25A0.\u25A0. \uB124\uC774\uBC84 SDK \uBAA8\uB4DC: div \uCEE8\uD14C\uC774\uB108 (2026-09 \uCD94\uAC00, \uCE74\uCE74\uC624\uC640 \uB3D9\uC77C v-show \uD328\uD134) === -->
+    <div v-show="uiState.mapProvider==='naver_sdk'"
+      id="shopjoy-naver-map" ref="naverMapEl"
+      style="width:100%;height:clamp(220px,40vw,320px);">
+    </div>
+    <!-- ===== \u25A1.\u25A1. \uB124\uC774\uBC84 SDK \uBAA8\uB4DC: div \uCEE8\uD14C\uC774\uB108 ================================== -->
+    <template v-if="uiState.mapProvider!=='kakao_sdk' && uiState.mapProvider!=='naver_sdk'">
       <!-- ===== \u25A0.\u25A0. iframe \uBAA8\uB4DC (Google / OSM) ============================== -->
       <iframe v-if="!uiState.mapError ? uiState.mapSrc : false" :src="uiState.mapSrc" width="100%" style="border:0;display:block;height:clamp(220px,40vw,320px);" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" @error="onMapError">
     </iframe>
