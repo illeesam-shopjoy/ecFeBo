@@ -71,6 +71,7 @@ const FO_REG_TO_GLOBAL = {
 const FO_PAGE_TO_CLASS_STATIC = {
   cart: 'Cart', order: 'Order', contact: 'Contact', faq: 'Faq',
   event: 'EventPage', eventView: 'EventView',
+  plan: 'PlanPage', planView: 'PlanView',
   blog: 'BlogPage', blogView: 'BlogView', blogEdit: 'BlogEdit',
   like: 'LikePage', location: 'LocationPage', about: 'AboutPage',
   myOrder: 'MyOrder', myClaim: 'MyClaim', myCoupon: 'MyCoupon',

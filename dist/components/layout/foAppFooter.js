@@ -221,7 +221,7 @@ window.foAppFooter={name:"FoAppFooter",props:["config","navigate"],emits:[],setu
      "\uCC44\uD305 \uC0C1\uB2F4\uB780 \uC2A4\uD0C0\uC77C\uC774 \uC774\uC0C1\uD558\uB2E4"). width:min() \uC73C\uB85C \uBDF0\uD3EC\uD2B8 \uD3ED\uC5D0 \uB9DE\uCDB0 \uC790\uB3D9\uC73C\uB85C \uC904\uC5B4\uB4E4\uAC8C \uD574\uC11C
      \uC88C\uC6B0 24px \uC5EC\uBC31\uC744 \uD56D\uC0C1 \uC720\uC9C0\uD55C\uB2E4. -->
 <div v-if="chatState.open"
-  style="position:fixed;right:24px;bottom:90px;z-index:8800;width:min(340px, calc(100vw - 48px));height:480px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.22);display:flex;flex-direction:column;overflow:hidden;border:1px solid #ffe4ec;">
+  style="position:fixed;right:24px;bottom:110px;z-index:8800;width:min(340px, calc(100vw - 48px));height:480px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.22);display:flex;flex-direction:column;overflow:hidden;border:1px solid #ffe4ec;">
   <!-- \uD328\uB110 \uD5E4\uB354 -->
   <div style="background:linear-gradient(135deg,#fff0f4 0%,#ffe4ec 60%,#ffd5e1 100%);border-bottom:1px solid #ffc9d6;">
     <!-- \uC81C\uBAA9 \uD589 -->
@@ -401,7 +401,7 @@ window.foAppFooter={name:"FoAppFooter",props:["config","navigate"],emits:[],setu
 <!-- \uCC44\uD305 \uD50C\uB85C\uD305 \uBC84\uD2BC -->
 <button type="button"
   @click="handleBtnAction('chat-toggle')"
-  style="position:fixed;right:24px;bottom:28px;z-index:8801;width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff8fab,#e8587a);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(232,88,122,0.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s;"
+  style="position:fixed;right:24px;bottom:48px;z-index:8801;width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff8fab,#e8587a);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(232,88,122,0.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s;"
   onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 28px rgba(232,88,122,0.6)';"
   onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(232,88,122,0.45)';"
   :title="chatState.open ? '\uCC44\uD305 \uB2EB\uAE30' : '\uCC44\uD305 \uC0C1\uB2F4 \uC5F4\uAE30'">
