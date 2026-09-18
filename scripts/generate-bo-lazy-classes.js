@@ -191,6 +191,7 @@ const BO_APP_COMP_PAGE = {
   syUserLoginHist: 'sy-user-login-hist',
   syExceldownMng: 'sy-exceldown-mng',
   syApiLogMng: 'sy-api-log-mng',
+  syApiErrorLogMng: 'sy-api-log-mng',
   sySendMsgLog: 'sy-send-msg-log-mng',
   syPostman: 'sy-postman',
   zdInfDashboard: 'zd-inf-dashboard',

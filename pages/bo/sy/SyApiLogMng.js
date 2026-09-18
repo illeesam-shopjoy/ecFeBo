@@ -1,8 +1,11 @@
-/* ShopJoy Admin - API로그조회 (API요청로그 + API오류로그) */
+/* ShopJoy Admin - API로그(API요청로그) / API오류로그
+ * 2026-09-19: 메뉴를 "API로그" / "API오류로그" 로 분리 — 같은 컴포넌트를 mode 로 구분해 재사용한다.
+ *   mode='access' → API요청로그만, mode='error' → API오류로그만(탭바 숨김). mode 미지정이면 예전처럼 탭 2개. */
 window.SyApiLogMng = {
   name: 'SyApiLogMng',
   props: {
     navigate: { type: Function, required: true }, // 페이지 이동
+    mode: { type: String, default: '' },          // 'access' | 'error' | ''(탭 2개 모두)
   },
   setup(props) {
 
@@ -16,7 +19,7 @@ window.SyApiLogMng = {
     // --- 화면 상태 / 코드 / 페이저 / 행 펼침 ---
     const uiState = reactive({
       loading: false, hasMore: true,   // 무한 스크롤: 중복요청 가드 / 더 받을 게 있는지
-      activeTab: 'access',
+      activeTab: props.mode === 'error' ? 'error' : 'access',
       srchOpen: false,
       dateRange: '1week',
       dateRangeStart: '',
@@ -529,8 +532,8 @@ window.SyApiLogMng = {
     };
   },
   template: /* html */`
-<bo-page title="API로그조회"
-  desc-summary="syh_access_log(API요청로그)와 syh_access_error_log(API오류로그)를 조회합니다."
+<bo-page :title="mode==='error' ? 'API오류로그' : mode==='access' ? 'API로그' : 'API로그조회'"
+  :desc-summary="mode==='error' ? 'syh_access_error_log(API오류로그)를 조회합니다.' : mode==='access' ? 'syh_access_log(API요청로그)를 조회합니다.' : 'syh_access_log(API요청로그)와 syh_access_error_log(API오류로그)를 조회합니다.'"
   desc-detail="• API요청로그(syh_access_log): 모든 API 요청/응답 기록 — 메서드, 경로, 상태코드, 처리시간, IP, x-헤더 포함 • API오류로그(syh_access_error_log): HTTP 4xx/5xx 오류 및 예외 상세 — 에러메시지, 스택트레이스 포함 • 행 클릭 → 상세정보 펼치기 (x-헤더, 쿼리, UA, 서버환경 등) • 기본 조회기간: 최근 1주일.">
   <!-- ===== □. 페이지 타이틀 ================================================== -->
   <!-- ===== ■. 검색 ====================================================== -->
@@ -557,7 +560,7 @@ window.SyApiLogMng = {
     :count-text="cofCountText(accessGridPager.pageTotalCount, cfCurrentList.length)">
     <!-- 탭 버튼 (영역 안 상단) -->
     <template #top>
-      <bo-tab-bar :tabs="tabs" :tab="uiState.activeTab" :show-modes="false" bg="#f0fdf4"
+      <bo-tab-bar v-if="!mode" :tabs="tabs" :tab="uiState.activeTab" :show-modes="false" bg="#f0fdf4"
         @tab-select="id => handleSelectAction('tabs-select', id)" />
     </template>
     <template #toolbar-actions>
