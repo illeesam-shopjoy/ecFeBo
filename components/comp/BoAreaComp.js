@@ -767,6 +767,8 @@ window.BoGrid = {
     gridId:       { type: String,  default: '' },                // 그리드 식별자(=셀 클릭 라우터 cmd, 예: 'members-cellClick'). @cell-click emit 의 e.cmd + #row-actions 슬롯 gridId 로 전달 → cmd 한 곳 정의
     selectedKey: { type: [String, Number], default: null },      // 선택된 행의 rowKey 값. 일치하는 행에 .bo-row-selected (파란 테두리) 자동 부여
     showRowNo:  { type: Boolean, default: true },                 // 번호 컬럼 표시. false=columns 배열에 직접 정의한 커스텀 번호 컬럼(예: 역순 카운트) 사용 시 끔 — 중복 방지
+    excelMenu:    { type: Boolean, default: true },               // 우클릭 컨텍스트메뉴 '엑셀다운로드' (2026-09-19). false=끔
+    excelName:    { type: String,  default: '' },                 // 엑셀 파일명(확장자·시각 제외). 비우면 '화면제목_목록제목'
     layout:       { type: String, default: 'table' },            // 'table'(기본) | 'card' — 카드형식 목록 (2026-08-25)
     cardMinWidth: { type: String, default: '220px' },             // 카드 최소 폭(auto-fill 반응형 그리드)
     cardClass:    { type: String, default: '' },                  // 카드 1장 wrapper 클래스 교체(page 가 자체 카드 CSS 를 이미 갖고 있을 때)
@@ -1077,7 +1079,74 @@ window.BoGrid = {
     const cfEffectiveRowActions = Vue.computed(() => props.rowActions || !!cfActionsColDef.value);
     const cfEffectiveRowActionsCols = Vue.computed(() => props.rowActionsCols || (cfActionsColDef.value && cfActionsColDef.value.actions) || null);
 
-    return { fnRowActionVal, fnRowActionVisible, fnRowActionDisabled, fnColLabel, fnColNm, U, cfTotal, cfCountText, cfScrollMaxHeight, cfBodyStyle, bodyRef, onScroll, cfShowTfoot, rowNo, sortIcon, sortActive,
+    /* ── ▼ 우클릭 컨텍스트메뉴 — 엑셀다운로드 (2026-09-19) ───────────────────
+       화면에 그려진 표를 값+색상+굵기+정렬 그대로 .xlsx 로 내려받는다. 실제 변환은 lib/utils/boGridExcel.js
+       (ExcelJS 는 첫 사용 시점에 지연 로딩 — 화면 초기 로딩에 영향 없음).
+       입력창/선택상자/편집영역 위 우클릭은 브라우저 기본 메뉴(붙여넣기 등)를 살리려고 가로채지 않는다. */
+    const ctx = Vue.reactive({ show: false, x: 0, y: 0, busy: false });
+    const onCtxKey = (e) => { if (e.key === 'Escape') closeCtx(); };
+    const closeCtx = () => {
+      ctx.show = false;
+      document.removeEventListener('click', closeCtx, true);
+      document.removeEventListener('contextmenu', closeCtx, true);
+      document.removeEventListener('keydown', onCtxKey, true);
+      window.removeEventListener('scroll', closeCtx, true);
+      window.removeEventListener('resize', closeCtx);
+    };
+    const onCtxMenu = (e) => {
+      if (!props.excelMenu) return;
+      if (e.target && e.target.closest && e.target.closest('input,textarea,select,[contenteditable="true"]')) return;
+      e.preventDefault();
+      closeCtx();
+      ctx.x = Math.max(4, Math.min(e.clientX, window.innerWidth - 168));
+      ctx.y = Math.max(4, Math.min(e.clientY, window.innerHeight - 52));
+      ctx.show = true;
+      document.addEventListener('click', closeCtx, true);
+      document.addEventListener('contextmenu', closeCtx, true);
+      document.addEventListener('keydown', onCtxKey, true);
+      window.addEventListener('scroll', closeCtx, true);
+      window.addEventListener('resize', closeCtx);
+    };
+    Vue.onBeforeUnmount(closeCtx);
+
+    /* fnExcelFileName — 지정값 > '화면제목[_목록제목]'. 화면제목은 이 그리드를 품은 가장 가까운 .page-title */
+    const fnExcelFileName = () => {
+      const clean = (v) => String(v || '').replace(/[\\/:*?"<>|]/g, '_').trim();
+      if (props.excelName) return clean(props.excelName);
+      let pageTitle = '';
+      for (let el = bodyRef.value; el && !pageTitle; el = el.parentElement) {
+        const t = el.querySelector && el.querySelector('.page-title');
+        if (t) pageTitle = (t.textContent || '').trim();
+      }
+      const list = props.listTitle && props.listTitle !== '목록' ? props.listTitle : '';
+      return clean([pageTitle, list].filter(Boolean).join('_')) || '그리드';
+    };
+    const loadScriptOnce = (src) => new Promise((resolve, reject) => {
+      const sc = document.createElement('script');
+      sc.src = new URL(src, document.baseURI).href;
+      sc.onload = resolve;
+      sc.onerror = () => reject(new Error('스크립트를 불러오지 못했습니다: ' + src));
+      document.head.appendChild(sc);
+    });
+    const doExcelExport = async () => {
+      closeCtx();
+      const table = bodyRef.value && bodyRef.value.querySelector('table');
+      if (!table || ctx.busy) return;
+      ctx.busy = true;
+      const toast = window.boApp && window.boApp.showToast;
+      try {
+        if (!window.boGridExcel) await loadScriptOnce('lib/utils/boGridExcel.js');
+        const r = await window.boGridExcel.exportTable(table, { fileName: fnExcelFileName() });
+        if (toast) toast('엑셀 다운로드 완료 (' + r.rows + '건)', 'success');
+      } catch (e) {
+        console.error('[BoGrid] 엑셀 다운로드 실패', e);
+        if (toast) toast('엑셀 다운로드 실패: ' + (e.message || e), 'error');
+      } finally {
+        ctx.busy = false;
+      }
+    };
+
+    return { ctx, onCtxMenu, doExcelExport, fnRowActionVal, fnRowActionVisible, fnRowActionDisabled, fnColLabel, fnColNm, U, cfTotal, cfCountText, cfScrollMaxHeight, cfBodyStyle, bodyRef, onScroll, cfShowTfoot, rowNo, sortIcon, sortActive,
              fnRowStyle, fnRowClass, fnIsExpanded, cfColspan, fnRowChecked,
              handleBtnAction, handleSelectAction,
              colWidths, onResizeStart, thResizeStyle,
@@ -1103,11 +1172,20 @@ window.BoGrid = {
        tableMaxHeight 명시 시: 해당 높이로 내부 스크롤 (thead sticky = 이 div 기준).
        tableMaxHeight 미지정: overflow 없음 — bo-main 스크롤 컨테이너 기준으로 thead sticky top:0 동작.
        bare: 가로 스크롤만. -->
-  <div v-if="layout==='table'" ref="bodyRef" :style="cfBodyStyle" @scroll="onScroll">
+  <div v-if="layout==='table'" ref="bodyRef" :style="cfBodyStyle" @scroll="onScroll" @contextmenu="onCtxMenu">
     <!-- 조회 중 오버레이 (기존 행 위에 표시 — 재조회/페이지 이동 피드백). 행이 없을 땐 빈행 문구로 안내 -->
     <div v-if="loading ? (rows.length) : false" style="position:absolute;inset:0;z-index:5;background:rgba(255,255,255,.55);display:flex;align-items:flex-start;justify-content:center;padding-top:40px;pointer-events:none;">
       <span style="font-size:13px;color:#e8587a;background:#fff;border:1px solid #f3c6d4;border-radius:14px;padding:4px 14px;box-shadow:0 2px 8px rgba(0,0,0,.08);">⏳ 조회 중…</span>
     </div>
+    <Teleport to="body">
+      <div v-if="ctx.show" @click.stop @contextmenu.prevent
+        :style="'position:fixed;z-index:10000;left:' + ctx.x + 'px;top:' + ctx.y + 'px;background:#fff;border:1px solid #e0e0e0;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.15);min-width:150px;padding:4px 0;'">
+        <div @click="doExcelExport" style="padding:8px 16px;font-size:12px;color:#333;cursor:pointer;white-space:nowrap;"
+          @mouseenter="$event.currentTarget.style.background='#fff8f9';$event.currentTarget.style.color='#e8587a'" @mouseleave="$event.currentTarget.style.background='';$event.currentTarget.style.color='#333'">
+          📊 엑셀다운로드
+        </div>
+      </div>
+    </Teleport>
     <table class="bo-table" :class="{ 'crud-grid': draggable || showSave, 'bo-table-narrow': narrow }">
       <thead>
         <tr>

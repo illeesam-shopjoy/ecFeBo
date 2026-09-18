@@ -60,6 +60,8 @@ assets/cdn/pkg/
 │
 ├── xlsx/0.20.3/
 │   └── xlsx.full.min.js              ● 929KB  SheetJS — .xlsx/.xls 파싱 (admin 엑셀 업로드)
+├── exceljs/4.4.0/
+│   └── exceljs.min.js                ● 948KB  ExcelJS — 셀 서식(색/굵기/정렬) 포함 .xlsx 생성 (그리드 우클릭 엑셀다운로드, 첫 사용 시 지연 로딩)
 │
 └── tailwind/3.4.19.build/
     └── tailwind.min.css              ●  빌드 결과물 (`.build` 접미사로 생성물 표시)
@@ -179,6 +181,10 @@ assets/cdn/pkg/
 |---|---|
 | 원본 | `https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js` |
 | 로드 위치 | `bo.html` |
+
+### ExcelJS · `exceljs/4.4.0/exceljs.min.js`
+
+원본: `https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js` — 그리드(BoGrid) 우클릭 "엑셀다운로드"(lib/utils/boGridExcel.js)가 쓴다. SheetJS 커뮤니티판은 셀 서식을 쓸 수 없어 별도로 둔다.
 
 ### SheetJS (xlsx) · `xlsx/0.20.3/xlsx.full.min.js`
 
