@@ -25,7 +25,42 @@
         // "list.inactiveSelectionBackground": "#595a00",
         // "list.inactiveSelectionForeground": "#d0ff00",
     },
-    "liveServer.settings.port": 5502,
+    "liveServer.settings.port": 5500,
+
+    // 2026-09-19: Live Server 가 "실제 소스" 변경에만 자동 새로고침하도록 감시 제외 목록 지정.
+    // (상위 illeesam-shopjoy/.vscode/settings.json 과 같은 취지 — 이 폴더를 루트로 따로 열었을 때용)
+    // Live Server 는 허용목록이 없고 제외목록만 있어서 ① 산출물/의존성 폴더 ② 소스가 아닌 확장자를 제외한다.
+    // ⚠ Live Server 를 다시 시작(Go Live 끄고 켜기 / Reload Window)해야 적용된다.
+    "liveServer.settings.ignoreFiles": [
+        // ── 기본값 유지 ──
+        ".vscode/**",
+        "**/*.scss",
+        "**/*.sass",
+        "**/*.ts",
+
+        // ── 산출물/의존성 폴더 ──
+        "**/.git/**",
+        "**/.idea/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/out/**",
+        "**/logs/**",
+        "**/uploads/**",
+        "**/static/cdn/**",
+        "**/node_modules/**",
+        "**/assets/cdn/**",
+
+        // ── 소스가 아닌 확장자 ──
+        "**/*.xlsx", "**/*.xls", "**/*.xlsm", "**/*.csv",
+        "**/*.pdf", "**/*.doc", "**/*.docx", "**/*.ppt", "**/*.pptx",
+        "**/*.zip", "**/*.gz", "**/*.tar", "**/*.7z", "**/*.jar",
+        "**/*.log", "**/*.tmp", "**/*.temp", "**/*.bak", "**/*.swp", "**/*.lock",
+        "**/*.md", "**/*.txt",
+        "**/*.map",
+        "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.ico", "**/*.bmp",
+        "**/*.mp4", "**/*.mp3", "**/*.wav", "**/*.webm", "**/*.mov",
+        "**/*.woff", "**/*.woff2", "**/*.ttf", "**/*.eot", "**/*.otf"
+    ],
     "livePreview.defaultPreviewPath": "/mainFrame.html",
     "editor.codeActionsOnSave": {
         "source.fixAll.eslint": "explicit"
