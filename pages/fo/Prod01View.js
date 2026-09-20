@@ -190,6 +190,12 @@ window.Prod01View = {
     const isLiked              = (id) => window.foApp.isLiked?.(id) ?? false;
 
     const uiState = reactive({ loading: false, error: null, selectedImg: 0, selectedColor: null, selectedSize: null, qty: 1, colorError: '', sizeError: '', activeTab: 'detail', reviewFilter: '최신순', selectedReview: null, photoGridPage: 1, tabFixed: false, tabFixedTop: 0, tabFixedLeft: 0, tabFixedW: 0, tabPlaceholderH: 0, drawerMode: 'buy', photoFromGrid: false, showSizeGuide: false, photoPopupOpen: false, zoomOpen: false, showBottomBar: false, quickBuyOpen: false, prodApiLoaded: false });
+    /* 2026-09-20(요청사항: "하단 구매하기바와 채팅아이콘이 겹쳐보이는데 채팅아이콘이 약간 위로") — 하단 구매바가 나오면 우하단 채팅 버튼/패널(foAppFooter)이
+       구매바에 가려지지 않도록 <html> 의 --fab-lift 를 구매바 높이만큼 올린다. */
+    watch(() => uiState.showBottomBar, (v) => {
+      document.documentElement.style.setProperty('--fab-lift', v ? '72px' : '0px');
+    });
+    onBeforeUnmount(() => { document.documentElement.style.setProperty('--fab-lift', '0px'); });
     const codes = reactive({});
     const svProduct = reactive({});
 
@@ -580,6 +586,9 @@ window.Prod01View = {
       /* -- 하단 바 표시: 구매 버튼이 화면 밖으로 나가면 표시 -- */
       const btn = buyBtnRef.value;
       uiState.showBottomBar = btn ? btn.getBoundingClientRect().bottom < mainTop : false;
+      /* 2026-09-20(요청사항: "footer 영역에서는 하단바 안 보여도 돼") — 푸터가 보이면 구매바를 숨긴다(푸터 위를 덮지 않게). 다른 상세화면도 동일 */
+      const ftEl = document.querySelector('footer');
+      if (ftEl && ftEl.getBoundingClientRect().top < main.getBoundingClientRect().bottom) { uiState.showBottomBar = false; }
 
       /* -- 활성 탭 -- */
       const barH = bar.offsetHeight || 44;

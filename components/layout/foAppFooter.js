@@ -582,7 +582,7 @@ window.foAppFooter = {
      "채팅 상담란 스타일이 이상하다"). width:min() 으로 뷰포트 폭에 맞춰 자동으로 줄어들게 해서
      좌우 24px 여백을 항상 유지한다. -->
 <div v-if="chatState.open"
-  style="position:fixed;right:24px;bottom:110px;z-index:8800;width:min(340px, calc(100vw - 48px));height:480px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.22);display:flex;flex-direction:column;overflow:hidden;border:1px solid #ffe4ec;">
+  style="position:fixed;right:24px;bottom:calc(110px + var(--fab-lift, 0px));transition:bottom .2s ease;z-index:8800;width:min(340px, calc(100vw - 48px));height:480px;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.22);display:flex;flex-direction:column;overflow:hidden;border:1px solid #ffe4ec;">
   <!-- 패널 헤더 -->
   <div style="background:linear-gradient(135deg,#fff0f4 0%,#ffe4ec 60%,#ffd5e1 100%);border-bottom:1px solid #ffc9d6;">
     <!-- 제목 행 -->
@@ -762,7 +762,7 @@ window.foAppFooter = {
 <!-- 채팅 플로팅 버튼 -->
 <button type="button"
   @click="handleBtnAction('chat-toggle')"
-  style="position:fixed;right:24px;bottom:48px;z-index:8801;width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff8fab,#e8587a);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(232,88,122,0.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s;"
+  style="position:fixed;right:24px;bottom:calc(48px + var(--fab-lift, 0px));transition:bottom .2s ease;z-index:8801;width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#ff8fab,#e8587a);color:#fff;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(232,88,122,0.45);display:flex;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s;"
   onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 28px rgba(232,88,122,0.6)';"
   onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(232,88,122,0.45)';"
   :title="chatState.open ? '채팅 닫기' : '채팅 상담 열기'">
