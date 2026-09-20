@@ -532,9 +532,6 @@ window.Prod03View = {
       /* -- 하단 바 표시: 구매 버튼이 화면 밖으로 나가면 표시 -- */
       const btn = buyBtnRef.value;
       uiState.showBottomBar = btn ? btn.getBoundingClientRect().bottom < mainTop : false;
-      /* 2026-09-20(요청사항: "footer 영역에서는 하단바 안 보여도 돼") — 푸터가 보이면 구매바를 숨긴다(푸터 위를 덮지 않게). 다른 상세화면도 동일 */
-      const ftEl = document.querySelector('footer');
-      if (ftEl && ftEl.getBoundingClientRect().top < main.getBoundingClientRect().bottom) { uiState.showBottomBar = false; }
 
       /* -- 활성 탭 -- */
       const barH = bar.offsetHeight || 44;
@@ -1695,6 +1692,8 @@ window.Prod03View = {
 <!-- ===== □.□. 목록 영역 ================================================= -->
 <!-- ===== □. ══ 사이즈 가이드 모달 ══ ======================================== -->
 <!-- ===== ■. ══ 고정 하단 바 ══ =========================================== -->
+<!-- 상세화면은 푸터를 숨기므로(foAppBase) 고정 하단 바에 페이지 끝이 가리지 않게 여백 -->
+<div v-if="prod" style="height:90px;"></div>
 <div v-if="prod ? uiState.showBottomBar : false" style="position:fixed;bottom:0;left:0;right:0;z-index:100;padding:10px 24px;display:flex;justify-content:center;align-items:center;background:linear-gradient(to top, var(--bg-card) 0%, rgba(245,248,255,0.98) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--border);box-shadow:0 -4px 18px rgba(80,100,160,0.08);">
 <div style="display:flex;align-items:center;gap:10px;max-width:760px;width:100%;">
   <div style="flex:1;min-width:0;overflow:hidden;">

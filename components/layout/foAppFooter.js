@@ -1,7 +1,7 @@
 /* ShopJoy - AppFooter */
 window.foAppFooter = {
   name: 'FoAppFooter',
-  props: ['config', 'navigate'],
+  props: ['config', 'navigate', 'hideFooter'],
   emits: [],
   setup() {
 
@@ -360,7 +360,7 @@ window.foAppFooter = {
     };
   },
   template: /* html */ `
-<footer style="padding:28px 32px;">
+<footer v-if="!hideFooter" style="padding:28px 32px;">
   <!-- ===== ■. 본문 영역 =================================================== -->
   <div style="max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
     <div style="display:flex;align-items:center;gap:10px;">
