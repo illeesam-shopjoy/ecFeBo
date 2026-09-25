@@ -210,11 +210,18 @@ window.MbMemberDtl = {
         placeholder: '관리자 메모' },
     ];
 
+    /* SNS 연동(소셜) 표 — 회원 조회 응답의 snsList(연동 해제 이력 포함). 민감값(이메일/이름/휴대폰/CI/사용자ID)은 서버가 마스킹해서 내려준다 */
+    const cfSnsList = computed(() => cfForm.value.snsList || []);
+    const fnSnsGender = (g) => (g === 'M' ? '남' : g === 'F' ? '여' : '');
+    const fnSnsBirth = (y, d) => [y || '', d ? d.slice(0, 2) + '-' + d.slice(2) : ''].filter(Boolean).join(' / ');
+    const fnDt = (v) => (v ? String(v).replace('T', ' ').slice(0, 16) : '');
+
     /* ##### [06] return (템플릿 노출) ############################################## */
 
     return {
       columns,
       currentId,       // 상태 / 데이터
+      cfSnsList, fnSnsGender, fnSnsBirth, fnDt, // 소셜 연동 표
       cfStandalone, cfForm, cfErrors, cfDtlId, cfIsNew, cfActive, // 독립 새창 지원
       handleShareKakao, handleCopyLink, pdfAreaRef, pdfExporting, handleExportPdf, // 링크/카카오공유/PDF
       handleBtnAction,                                                                 // dispatch (모든 이벤트 / 액션 라우팅)
@@ -244,6 +251,60 @@ window.MbMemberDtl = {
   <bo-form-area plain-readonly :columns="columns.baseForm" :form="cfForm" :errors="cfErrors"
     :readonly="!cfActive" :cols="3" compact :show-actions="false" />
   <!-- ===== □.■. 폼 영역 ================================================== -->
+  <!-- ===== ■.■. 소셜(SNS) 연동 — 카카오/네이버/구글. 연동여부·연동/인증일·SNS 가 준 정보·SNS 앱 키정보 (읽기 전용) ====== -->
+  <div v-if="cfDtlId && !cfIsNew" style="margin-top:14px;">
+    <div style="font-weight:600;margin-bottom:6px;">소셜 연동 <span style="font-weight:400;color:#888;font-size:12px;">({{ cfSnsList.length }}건)</span></div>
+    <div v-if="!cfSnsList.length" style="padding:10px;color:#888;font-size:12px;border:1px dashed #ddd;border-radius:6px;">연동된 소셜 계정이 없습니다.</div>
+    <div v-else style="overflow-x:auto;">
+      <table style="border-collapse:collapse;font-size:12px;min-width:1100px;width:100%;">
+        <thead>
+          <tr style="background:#f5f5f5;text-align:left;">
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">채널</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">연동여부</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">등록일</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">연동/인증일</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">해제일</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">닉네임</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">이름</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">이메일</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">성별</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">연령대</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">출생/생일</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">휴대폰</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">CI</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">받은 항목</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">SNS 사용자ID</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">앱ID</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">앱명</th>
+            <th style="padding:6px 8px;border:1px solid #e5e5e5;">클라이언트키</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="s in cfSnsList" :key="s.memberSnsId" :style="s.snsLinkYn === 'N' ? 'color:#999;background:#fafafa;' : ''">
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;white-space:nowrap;">{{ s.snsChannelCdNm || s.snsChannelCd }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsLinkYn === 'N' ? '해제' : '연동중' }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;white-space:nowrap;">{{ fnDt(s.regDate) }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;white-space:nowrap;">{{ fnDt(s.snsLinkDate) }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;white-space:nowrap;">{{ fnDt(s.snsUnlinkDate) }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsNickNm }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsName }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsEmail }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ fnSnsGender(s.snsGender) }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsAgeRange }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ fnSnsBirth(s.snsBirthYear, s.snsBirthDay) }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsPhoneNo }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsCi }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsScope }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsUserId }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsAppId }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;">{{ s.snsAppNm }}</td>
+            <td style="padding:6px 8px;border:1px solid #e5e5e5;word-break:break-all;">{{ s.snsClientKey }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- ===== □.■. 소셜(SNS) 연동 ================================================ -->
   <!-- ===== ■.■. 하단 액션 (Mng 인라인 상세 패널 표준 — 처리버튼은 하단 중앙 정렬) ============== -->
   <div v-if="cfDtlId" class="form-actions">
     <template v-if="!cfActive">
