@@ -129,6 +129,7 @@ const BO_APP_COMP_PAGE = {
   pmGiftDtl: 'pm-gift-dtl',
   pmVoucherMng: 'pm-voucher-mng',
   pmVoucherDtl: 'pm-voucher-dtl',
+  pmProdCouponMng: 'pm-prod-coupon-mng',
   mbCustInfoMng: 'mb-cust-info-mng',
   syContactMng: 'sy-contact-mng',
   syContactDtl: 'sy-contact-dtl',
