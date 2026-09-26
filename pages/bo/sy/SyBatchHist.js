@@ -18,7 +18,7 @@ window.SyBatchHist = {
     const batchLogs = reactive([]);                // 배치 실행이력 (메인 그리드 데이터)
     const uiState = reactive({                     // UI 상태
       loading: false, error: null, hasMore: true,   // hasMore: 무한 스크롤로 더 받을 게 있는지
-      searchBatchId: '', searchStatus: '', expandedSet: new Set(),
+      searchBatchId: '', searchStatus: '', searchRunType: '', expandedSet: new Set(),
     });
     const codes = reactive({ batch_run_statuses: [] });
 
@@ -89,6 +89,7 @@ window.SyBatchHist = {
           sortBy: 'runAt', sortDir: 'desc',
           ...(uiState.searchBatchId ? { batchId: uiState.searchBatchId } : {}),
           ...(uiState.searchStatus  ? { runStatusCd: uiState.searchStatus } : {}),
+          ...(uiState.searchRunType ? { runTypeCd: uiState.searchRunType } : {}),
         };
         const [resBatch, resLogs] = await Promise.all([
           boApiSvc.syBatch.getPage({ pageNo: 1, pageSize: 10000 }, '배치이력', '목록조회'),
@@ -196,6 +197,7 @@ window.SyBatchHist = {
       if (n === o) { return; }
       uiState.searchBatchId = props.filterBatchId != null ? props.filterBatchId : '';
       uiState.searchStatus  = '';
+      uiState.searchRunType = '';
       histGridPager.pageNo = 1;
       handleSearchData().then(() => { onExpandAll(); });
     });
@@ -225,7 +227,7 @@ window.SyBatchHist = {
       batches.map(b => ({ batchId: b.batchId, label: b.batchNm }))
     );
 
-    /* 실행구분 — AUTO 자동(서버 내장 스케줄러) / MANUAL 수동(BO 즉시실행) / EXTERNAL 외부호출(Jenkins 등 API 호출) */
+    /* 실행구분 — AUTO 자동(Spring Boot 내부 배치) / MANUAL 수동(이 화면에서 직접 실행) / EXTERNAL 외부호출(Jenkins 에서 호출) */
     const _RUN_TYPE_LABEL = { AUTO: '자동', MANUAL: '수동', EXTERNAL: '외부호출' };
     const _RUN_TYPE_BADGE = { AUTO: 'badge-blue', MANUAL: 'badge-orange', EXTERNAL: 'badge-gray' };
     const fnRunTypeLabel = v => _RUN_TYPE_LABEL[v] || v || '-';
@@ -291,6 +293,12 @@ window.SyBatchHist = {
     <input class="form-control" v-model="uiState.searchBatchId" placeholder="배치ID 입력"
       style="height:30px;font-size:12px;padding:2px 8px;width:90px;font-family:monospace;"
       title="배치ID 직접 입력 (행 클릭 시 자동 설정됨)" @keyup.enter="handleBtnAction('searchParam-list')" />
+    <select class="form-control" style="height:30px;font-size:12px;padding:2px 6px;width:96px;" v-model="uiState.searchRunType" title="자동=Spring Boot 내부 스케줄러 실행 / 수동=이 화면에서 직접 실행 / 외부호출=Jenkins 호출">
+      <option value="">실행구분 전체</option>
+      <option value="AUTO">자동</option>
+      <option value="MANUAL">수동</option>
+      <option value="EXTERNAL">외부호출</option>
+    </select>
     <select class="form-control" style="height:30px;font-size:12px;padding:2px 6px;width:90px;" v-model="uiState.searchStatus">
       <option value="">상태 전체</option>
       <option v-for="c in codes.batch_run_statuses" :key="c.codeValue" :value="c.codeValue">

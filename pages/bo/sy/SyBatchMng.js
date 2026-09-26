@@ -142,8 +142,9 @@ window.SyBatchMng = {
     /* onBatchRowSelect — 배치목록 행 클릭(포커스) → 해당 배치 실행이력만 표시 */
     const onBatchRowSelect = (idx) => {
       const row = (idx != null && idx >= 0) ? gridRows[idx] : null;
-      // 신규(미저장, batchId<=0) 행은 이력이 없으므로 전체로 둠
-      histFilterBatchId.value = (row && Number(row.batchId) > 0) ? row.batchId : null;
+      // 신규(미저장) 행은 임시 음수/0 ID 라 이력이 없으므로 전체로 둠. 저장된 행의 batchId 는 문자열 ID(예: BA2609...)
+      const _bid = row ? row.batchId : null;
+      histFilterBatchId.value = (_bid != null && _bid !== '' && !(Number(_bid) <= 0)) ? _bid : null;
       histReloadTrigger.value++;             // 배치 실행이력 재조회 신호
     };
 

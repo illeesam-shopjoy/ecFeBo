@@ -1932,6 +1932,7 @@ window.BoGridCrud = {
                   :style="U.cellInnerStyle(col, fnRow(item))" :class="U.cellInnerClass(col, fnRow(item))">
               {{ U.cellText(col, fnRow(item)) }}
             </span>
+            <span v-else-if="col.html" v-html="U.cellText(col, fnRow(item))"></span>
             <template v-else>
               {{ U.cellText(col, fnRow(item)) }}
             </template>
