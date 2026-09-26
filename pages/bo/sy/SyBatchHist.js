@@ -225,6 +225,11 @@ window.SyBatchHist = {
       batches.map(b => ({ batchId: b.batchId, label: b.batchNm }))
     );
 
+    /* 실행구분 — AUTO 자동(서버 내장 스케줄러) / MANUAL 수동(BO 즉시실행) / EXTERNAL 외부호출(Jenkins 등 API 호출) */
+    const _RUN_TYPE_LABEL = { AUTO: '자동', MANUAL: '수동', EXTERNAL: '외부호출' };
+    const _RUN_TYPE_BADGE = { AUTO: 'badge-blue', MANUAL: 'badge-orange', EXTERNAL: 'badge-gray' };
+    const fnRunTypeLabel = v => _RUN_TYPE_LABEL[v] || v || '-';
+
     // 이력 그리드
     const columns = {};
     columns.histGrid = [
@@ -238,6 +243,7 @@ window.SyBatchHist = {
         cellInnerStyle: 'font-size:11px;background:#f5f5f5;padding:1px 5px;border-radius:3px;font-family:monospace;' },
       { key: 'runAt',      label: '실행일시', style: 'width:128px;', cellStyle: 'color:#555;font-family:monospace;font-size:11px' },
       { key: 'durationMs', label: '소요시간', style: 'width:66px;text-align:center;', align: 'center', cellStyle: 'color:#666', fmt: (v) => fnFmtDuration(v) },
+      { key: 'runTypeCd',  label: '실행구분', style: 'width:72px;text-align:center;', align: 'center', fmt: (v) => fnRunTypeLabel(v), badge: (row) => _RUN_TYPE_BADGE[row.runTypeCd] || 'badge-gray' },
       { key: 'runStatusCd',  label: '결과',    style: 'width:66px;text-align:center;', align: 'center', badge: (row) => fnRunBadge(row.runStatusCd) },
       { key: 'message',    label: '메시지',  style: 'width:auto;', cellStyle: (v, row) => 'font-size:11px;max-width:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;' + (row.runStatusCd === 'FAILED' ? 'color:#dc2626' : 'color:#555') },
     ];
@@ -248,6 +254,7 @@ window.SyBatchHist = {
       { key: '_batchCode', label: '배치코드', type: 'readonly', mono: true, fmt: (v, row) => row.batchCode || '-' },
       { key: '_runAt',     label: '실행일시', type: 'readonly', mono: true, fmt: (v, row) => row.runAt || '-' },
       { key: '_duration',  label: '소요시간', type: 'readonly', fmt: (v, row) => fnFmtDuration(row.durationMs) },
+      { key: '_runType',   label: '실행구분', type: 'readonly', fmt: (v, row) => fnRunTypeLabel(row.runTypeCd) },
       { key: '_runStatusCd', label: '실행결과', type: 'readonly', html: true, fmt: (v, row) => `<span class="badge badge-xs ${fnRunBadge(row.runStatusCd)}">${row.runStatusCd || '-'}</span>` },
     ];
 
@@ -266,7 +273,7 @@ window.SyBatchHist = {
   },
   template: /* html */`
 <!-- ===== ■. 목록 영역 =================================================== -->
-<bo-container title="배치 실행이력"
+<bo-container :title="filterBatchId != null && filterBatchId !== '' ? '배치 실행이력 #' + filterBatchId : '배치 실행이력'"
     :count-text="cofCountText(histGridPager.pageTotalCount, batchLogs.length)">
   <template #toolbar-actions>
     <button class="btn btn_expand_all" @click="handleBtnAction('batchLogs-expandAll')" style="height:30px;font-size:11px;padding:2px 8px;" title="전체 펼치기">

@@ -14,9 +14,8 @@ window.SyBatchMng = {
     const showConfirm  = window.boApp.showConfirm;  // 확인 모달
 
     const batches = reactive([]);                  // 배치 목록 (서버 raw 데이터)
-    const batchCounts = reactive({});                 // 좌 트리 노드별 카운트 (검색조건 동기)
     const uiState = reactive({                     // UI 상태
-      checkAll: false, dragMoved: false, loading: false, error: null, selectedPath: null, focusedIdx: null,
+      checkAll: false, dragMoved: false, loading: false, error: null, focusedIdx: null,
     });
     const codes = reactive({ batch_status: [], active_statuses: [], batch_run_statuses: [], date_range_opts: [] });
 
@@ -36,7 +35,6 @@ window.SyBatchMng = {
       // 검색조건 초기화 + 재조회
       } else if (cmd === 'searchParam-reset') {
         Object.assign(searchParam, searchParamInit);
-        uiState.selectedPath = null;          // 표시경로 트리 전체로 복귀
         resetSelectionAndHist();              // 선택정보 + 배치 실행이력 초기화
         return handleSearchList('DEFAULT');
       // 기간 옵션 변경
@@ -61,9 +59,6 @@ window.SyBatchMng = {
       } else if (cmd === 'cronModal-close') {
         cronModal.show = false;
         return;
-      // 표시경로 선택 모달 닫기
-      } else if (cmd === 'pathModal-close') {
-        return closePathPick();
       } else {
         console.warn('[handleBtnAction] unknown cmd:', cmd);
       }
@@ -90,17 +85,6 @@ window.SyBatchMng = {
       // Cron 편집 모달에서 적용
       } else if (cmd === 'cronModal-apply') {
         return onCronApply(param);
-      // 좌측 경로 트리 노드 선택 → 우측 그리드 필터링 + 선택정보/실행이력 초기화
-      } else if (cmd === 'pathTree-select') {
-        uiState.selectedPath = param;
-        resetSelectionAndHist();              // 선택정보 + 배치 실행이력 초기화
-        return handleSearchList();
-      // 표시경로 picker 열기 (행 단위)
-      } else if (cmd === 'pathModal-open') {
-        return openPathPick(param);
-      // 표시경로 선택 → 행 pathId 갱신
-      } else if (cmd === 'pathModal-pick') {
-        return onPathPicked(param);
       } else {
         console.warn('[handleSelectAction] unknown cmd:', cmd);
       }
@@ -120,10 +104,7 @@ window.SyBatchMng = {
     /* fnCallbackModal — 모든 모달 통합 dispatch. cmd=모달명, param=호출 시 파라미터, result=응답 결과 */
     const fnCallbackModal = (popCmd, param, result) => {
       console.log(' ■■ SyBatchMng : fnCallbackModal -> ', popCmd, param, result);
-      if (popCmd === 'cmPopup-path-pick') {
-        if (result == null) { return closePathPick(); }
-        return onPathPicked(result);
-      } else if (popCmd === 'cron') {
+      if (popCmd === 'cron') {
         if (result == null) {
             cronModal.show = false;
             return;
@@ -144,27 +125,10 @@ window.SyBatchMng = {
     let _tempId = -1;                              // 신규 행 임시 ID (음수)
     const EDIT_FIELDS = ['batchNm', 'batchCode', 'cronExpr', 'batchStatusCd', 'batchDesc'];
 
-    /* ===== 표시경로 선택 모달 (sy_path) ===== */
-    const pathPickModal = reactive({ show: false, row: null });
-
     /* ===== Cron 편집 모달 ===== */
     const cronModal = reactive({ show: false, rowIdx: null, value: '0 0 * * *' });
 
     /* ##### [04] 내장 사용 함수 (이벤트 핸들러 on* / handle*) ############################ */
-
-    /* handleLoadPathTreeNodeCounts — 좌 트리 노드별 카운트 (검색조건 동기, 백엔드 재귀 CTE) */
-    const handleLoadPathTreeNodeCounts = async () => {
-      try {
-        const params = Object.fromEntries(Object.entries(searchParam)
-          .filter(([k, v]) => v !== '' && v !== null && v !== undefined && k !== 'pathId'));
-        const res = await boApiSvc.syBatch.getPathTreeNodeCounts(params, '경로별카운트', '조회');
-        const rows = res.data?.data || [];
-
-        Object.keys(batchCounts).forEach(k => { delete batchCounts[k]; });
-
-        for (const r of rows) { if (r && r.pathId != null) batchCounts[r.pathId] = r.cnt; }
-      } catch (e) { console.error('[handleLoadPathTreeNodeCounts]', e); }
-    };
 
     /* resetSelectionAndHist — 좌측 트리/초기화 시 배치목록 선택정보 + 배치 실행이력(전체) 초기화 */
     const resetSelectionAndHist = () => {
@@ -187,14 +151,12 @@ window.SyBatchMng = {
     const handleSearchList = async (searchType = 'DEFAULT') => {
       uiState.loading = true;
       try {
-        const res = await boApiSvc.syBatch.getPage({ pageNo: 1, pageSize: 10000, ...coUtil.cofOmitEmpty(searchParam), ...(uiState.selectedPath != null ? { pathId: uiState.selectedPath } : {}) }, '배치관리', '목록조회');
+        const res = await boApiSvc.syBatch.getPage({ pageNo: 1, pageSize: 10000, ...coUtil.cofOmitEmpty(searchParam) }, '배치관리', '목록조회');
         const list = res.data?.data?.pageList || res.data?.data?.list || [];
         batches.splice(0, batches.length, ...list);
         gridRows.splice(0);
         list.forEach(b => gridRows.push(makeRow(b)));
         uiState.error = null;
-        /* 좌 트리 카운트 동기 갱신 */
-        handleLoadPathTreeNodeCounts();
       } catch (err) {
         console.error('[catch-info]', err);
         uiState.error = err.message;
@@ -202,24 +164,6 @@ window.SyBatchMng = {
         uiState.loading = false;
       }
     };
-
-    /* openPathPick — 표시경로 선택 모달 열기 */
-    const openPathPick = (row) => { pathPickModal.row = row; pathPickModal.show = true; };
-
-    /* closePathPick — 표시경로 선택 모달 닫기 */
-    const closePathPick = () => { pathPickModal.show = false; pathPickModal.row = null; };
-
-    /* onPathPicked — 표시경로 선택 결과 적용 */
-    const onPathPicked = (pathId) => {
-      const row = pathPickModal.row;
-      if (row) {
-        row.pathId = pathId;
-        if (row._row_status === 'N') { row._row_status = 'U'; }
-      }
-    };
-
-    /* pathLabel — 경로 라벨 변환 */
-    const pathLabel = (id) => boUtil.bofGetPathLabel(id) || (id == null ? '' : ('#' + id));
 
     /* handleDateRangeChange — 기간 옵션 변경 */
     const handleDateRangeChange = () => {
@@ -370,7 +314,6 @@ window.SyBatchMng = {
     const excelModal = reactive({ show: false });
     const buildExcelParams = () => ({
       ...coUtil.cofOmitEmpty(searchParam),
-      ...(uiState.selectedPath != null ? { pathId: uiState.selectedPath } : {}),
     });
     const exportExcel = () => { excelModal.show = true; };
 
@@ -399,7 +342,12 @@ window.SyBatchMng = {
       const _qs = new URLSearchParams(window.location.search);
       const _reserved = ['page','id','orderId','claimId','embed','dtlMode'];
       Object.keys(searchParam).forEach((k) => { if (!_reserved.includes(k) && _qs.has(k)) searchParam[k] = _qs.get(k); });
+      /* 특정 배치만 보는 링크: ?batchCode=배치코드 (= searchType=batchCode&searchValue=배치코드) */
+      if (_qs.get('batchCode')) { searchParam.searchType = 'batchCode'; searchParam.searchValue = _qs.get('batchCode'); }
+      const _hasSearchLink = !!(_qs.get('batchCode') || _qs.get('searchValue'));
       await handleSearchList('DEFAULT');
+      /* 링크로 특정 배치를 지정해 1건만 조회되면 자동 선택 → 하단 실행이력이 그 배치로 표시된다 */
+      if (_hasSearchLink && gridRows.length === 1) { uiState.focusedIdx = 0; onBatchRowSelect(0); }
       Object.assign(searchParamInit, searchParam);   // [초기화] 기준값 스냅샷
     };
     onMounted(initPage);
@@ -453,9 +401,6 @@ window.SyBatchMng = {
 
     // 기본 그리드
     columns.baseGrid = [
-      { key: 'pathId',        label: '표시경로',     style: 'width:170px;max-width:170px;',
-        pathLabelOpen: { label: pathLabel, open: (row) => handleSelectAction('pathModal-open', row),
-          clear: (row) => { row.pathId = null; onCellChange(row); }, placeholder: '경로 선택...' } },
       { key: 'batchNm',       label: '배치명',       style: 'min-width:120px;', edit: 'text', placeholder: '배치명',
         cellStyle: (v, row) => fnIsRecent24h(row) ? 'font-weight:700;' : '' },
       { key: 'batchCode',     label: '배치코드',     style: 'min-width:160px;', edit: 'text', mono: true, placeholder: 'BATCH_CODE' },
@@ -477,7 +422,7 @@ window.SyBatchMng = {
 
     return {
       columns,
-      batches, uiState, batchCounts, searchParam, gridRows, pathPickModal, cronModal, histReloadTrigger, histFilterBatchId,       // 상태 / 데이터
+      batches, uiState, searchParam, gridRows, cronModal, histReloadTrigger, histFilterBatchId,       // 상태 / 데이터
       excelModal, buildExcelParams, // 엑셀 다운로드 모달
       handleBtnAction, handleSelectAction, handleGridCellAction, fnCallbackModal,                                               // dispatch (모든 이벤트 / 액션 라우팅)
       cfShowRunNow,          // computed / 헬퍼
@@ -492,14 +437,8 @@ window.SyBatchMng = {
     <bo-search-area :loading="uiState.loading" @search="handleBtnAction('searchParam-list')" @reset="handleBtnAction('searchParam-reset')" :columns="columns.baseSearch" :param="searchParam" />
   </bo-container>
   <!-- ===== □. 검색 ====================================================== -->
-  <!-- ===== ■. 좌 트리 + 우 영역 ============================================= -->
-  <div class="bo-2col">
-    <!-- ===== ■.■. 경로 트리 ================================================= -->
-    <bo-container bare>
-      <bo-path-tree-card biz-cd="sy_batch" title="표시경로" :show-biz-cd="false" :counts="batchCounts"
-        max-height="calc(100vh - 320px)"
-        :selected="uiState.selectedPath" @select="path => handleSelectAction('pathTree-select', path)" />
-    </bo-container>
+  <!-- ===== ■. 배치 목록 ==================================================== -->
+  <div>
     <bo-container bare>
       <!-- ===== ■.■.■. CRUD 그리드 ============================================ -->
       <bo-grid-crud
@@ -538,15 +477,11 @@ window.SyBatchMng = {
         :columns="columns.baseGrid" ui-nm="배치스케줄관리" :params="buildExcelParams()"
         @close="excelModal.show = false" />
     </bo-container>
-    <!-- ===== □.□. 경로 트리 ================================================= -->
   </div>
-  <!-- ===== □. 좌 트리 + 우 영역 ============================================= -->
+  <!-- ===== □. 배치 목록 ==================================================== -->
   <!-- ===== ■. 배치 실행이력 (전체 폭) ========================================== -->
   <sy-batch-hist :reload-trigger="histReloadTrigger" :filter-batch-id="histFilterBatchId" />
   <!-- ===== □. 배치 실행이력 (전체 폭) ========================================== -->
-  <!-- ===== ■. 표시경로 선택 모달 ============================================= -->
-  <bo-cm-popup-modal v-if="pathPickModal ? (pathPickModal.show) : false" popup-cmd="cmPopup-path-pick" popup-code="path" result-type="id" :init-param="{ bizCd: 'sy_batch' }" :on-callback="fnCallbackModal" />
-  <!-- ===== □. 표시경로 선택 모달 ============================================= -->
 </bo-page>
 `,
 };

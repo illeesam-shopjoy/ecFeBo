@@ -151,7 +151,7 @@ window.SyBatchDtl = {
       { key: '_siteNm',       label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 2 },
       { key: 'batchNm',       label: '배치명', type: 'text', required: true, placeholder: '배치 이름' },
       { key: 'batchCode',     label: '배치코드', type: 'text', required: true,
-        placeholder: 'ORDER_AUTO_COMPLETE', mono: true },
+        placeholder: 'OD_ORDER_AUTO_COMPLETE', mono: true },
       { key: 'batchDesc',     label: '설명', type: 'text', placeholder: '배치 처리 내용 설명', colSpan: 2 },
       { key: 'cronExpr',      label: 'Cron 표현식', type: 'text', required: true,
         placeholder: '0 0 * * *', mono: true, hint: '분 시 일 월 요일', colSpan: 2 },
