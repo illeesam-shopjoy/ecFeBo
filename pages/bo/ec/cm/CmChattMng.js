@@ -9,7 +9,7 @@ window.CmChattMng = {
 
     /* ##### [01] 초기 변수 정의 #################################################### */
 
-    const { ref, reactive, computed, onMounted, watch } = Vue;
+    const { ref, reactive, computed, onMounted, onUnmounted, watch } = Vue;
     const showToast    = window.boApp.showToast;   // 토스트 알림
     const showConfirm  = window.boApp.showConfirm; // 확인 모달
     const showRefModal = window.boApp.showRefModal; // 참조 모달
@@ -138,7 +138,8 @@ window.CmChattMng = {
 
     /* handleSearchList — 목록 조회 */
     const handleSearchList = async (searchType = 'DEFAULT') => {
-      uiState.loading = true;
+      const _silent = searchType === 'REALTIME';   // 실시간 갱신은 로딩 표시·진행 오버레이 없이 조용히
+      if (!_silent) { uiState.loading = true; }
       try {
         const params = {
           pageNo: baseGridPager.pageNo, pageSize: baseGridPager.pageSize,
@@ -149,7 +150,7 @@ window.CmChattMng = {
         if (params.searchValue && !params.searchType) {
           params.searchType = 'memberNm,subject';
         }
-        const res = await boApiSvc.cmChatt.getPage(params, '채팅관리', '목록조회');
+        const res = await boApiSvc.cmChatt.getPage(params, '채팅관리', '목록조회', _silent ? { isProgress: false } : undefined);
         const data = res.data?.data;
         chatts.splice(0, chatts.length, ...(data?.pageList || []));
         baseGridPager.pageTotalCount = data?.pageTotalCount || 0;
@@ -267,6 +268,20 @@ window.CmChattMng = {
       Object.assign(searchParamInit, searchParam);   // [초기화] 기준값 스냅샷
     };
     onMounted(initPage);
+
+    /* 실시간(SSE) — 새 채팅 요청·새 메시지·상태 변경 신호가 오면 목록을 조용히 다시 조회한다(1.5초 묶음) */
+    let listStream = null;
+    let _rtTimer = null;
+    onMounted(() => {
+      if (window.boApi && typeof window.boApi.stream === 'function') {
+        listStream = window.boApi.stream('/bo/ec/cm/chatt/stream', (ev) => {
+          if (ev !== 'room' && ev !== 'msg' && ev !== 'status') { return; }
+          clearTimeout(_rtTimer);
+          _rtTimer = setTimeout(() => handleSearchList('REALTIME'), 1500);
+        });
+      }
+    });
+    onUnmounted(() => { clearTimeout(_rtTimer); if (listStream) { listStream.close(); listStream = null; } });
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 

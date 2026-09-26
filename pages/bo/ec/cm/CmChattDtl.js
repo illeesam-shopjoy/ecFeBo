@@ -156,32 +156,52 @@ window.CmChattDtl = {
       }
     };
 
-    /* fnStartPoll — 폴링 시작 (3초, 새 메시지만) */
-    const fnStartPoll = () => {
-      if (pollTimer) { return; }
-      pollTimer = setInterval(async () => {
-        if (!props.dtlId) { return; }
-        try {
-          const params = pollLastMsgId ? { afterMsgId: pollLastMsgId } : {};
-          const res = await boApiSvc.cmChatt.getMessages(props.dtlId, params, '채팅관리', '폴링');
-          const newMsgs = res.data?.data || [];
-          if (newMsgs.length > 0) {
-            messages.push(...newMsgs);
-            pollLastMsgId = newMsgs[newMsgs.length - 1].chattMsgId;
-            scrollToBottom();
-            // 미읽음 카운트 갱신 (회원이 보낸 것만)
-            const memberMsgs = newMsgs.filter(m => m.senderCd === 'MEMBER');
-            if (memberMsgs.length > 0 && uiState.chat) { uiState.chat.memberUnreadCnt = (uiState.chat.memberUnreadCnt || 0) + memberMsgs.length; }
-          }
-        } catch (err) {
-          console.warn('[poll]', err.message);
+    /* fnFetchNew — 마지막 메시지 이후 새 메시지 조회 (스트림 신호·폴링 공용) */
+    let lastFetchAt = 0;
+    const fnFetchNew = async () => {
+      if (!props.dtlId) { return; }
+      lastFetchAt = Date.now();
+      try {
+        const params = pollLastMsgId ? { afterMsgId: pollLastMsgId } : {};
+        const res = await boApiSvc.cmChatt.getMessages(props.dtlId, params, '채팅관리', '실시간', { isProgress: false });
+        const newMsgs = (res.data?.data || []).filter(m => !messages.some(x => x.chattMsgId === m.chattMsgId));
+        if (newMsgs.length > 0) {
+          messages.push(...newMsgs);
+          pollLastMsgId = newMsgs[newMsgs.length - 1].chattMsgId;
+          scrollToBottom();
+          // 미읽음 카운트 갱신 (회원이 보낸 것만)
+          const memberMsgs = newMsgs.filter(m => m.senderTypeCd === 'MEMBER' || m.senderCd === 'MEMBER');
+          if (memberMsgs.length > 0 && uiState.chat) { uiState.chat.memberUnreadCnt = (uiState.chat.memberUnreadCnt || 0) + memberMsgs.length; }
         }
+      } catch (err) {
+        console.warn('[chatFetch]', err.message);
+      }
+    };
+
+    /* fnStartPoll — 실시간(SSE) 연결 + 폴링 안전망. 스트림이 연결돼 있으면 20초에 한 번만, 끊겨 있으면 3초마다 확인 */
+    let chatStream = null;
+    let streamConnected = false;
+    const fnStartPoll = () => {
+      if (!chatStream && props.dtlId && window.boApi && typeof window.boApi.stream === 'function') {
+        chatStream = window.boApi.stream(`/bo/ec/cm/chatt/${encodeURIComponent(props.dtlId)}/stream`,
+          (ev, data) => {
+            if (ev === 'status' && data.statusCd && uiState.chat) { uiState.chat.chattStatusCd = data.statusCd; }
+            if (ev === 'msg' || ev === 'status') { fnFetchNew(); }
+          },
+          (connected) => { streamConnected = connected; if (connected) { fnFetchNew(); } });
+      }
+      if (pollTimer) { return; }
+      pollTimer = setInterval(() => {
+        if (streamConnected && Date.now() - lastFetchAt < 20000) { return; }
+        fnFetchNew();
       }, 3000);
     };
 
-    /* fnStopPoll — 폴링 중지 */
+    /* fnStopPoll — 실시간 연결·폴링 중지 */
     const fnStopPoll = () => {
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (chatStream) { chatStream.close(); chatStream = null; }
+      streamConnected = false;
     };
 
     /* showTab — 탭 표시 여부 */
