@@ -61,7 +61,7 @@ services:
     labels:
       shopjoy.version: "v1.0.0.20260906"
 
-    restart: unless-stopped
+    restart: always
 
     logging:
       driver: "json-file"
