@@ -145,7 +145,7 @@ window.CmChattDtl = {
         } catch (_) {}
         scrollToBottom();
         // 진행 중인 채팅만 폴링 시작
-        if (uiState.chat && (uiState.chat.chattStatusCd === 'OPEN' || uiState.chat.chattStatusCd === 'PENDING' || uiState.chat.chattStatusCd === 'IN_PROGRESS')) {
+        if (uiState.chat && (['OPEN', 'PENDING', 'ACTIVE', 'IN_PROGRESS'].includes(uiState.chat.chattStatusCd))) {
           fnStartPoll();
         }
       } catch (err) {
@@ -235,6 +235,69 @@ window.CmChattDtl = {
     /* scrollToBottom — 스크롤 하단으로 */
     const scrollToBottom = () => {
       nextTick(() => { const el = msgBoxRef.value; if (el) el.scrollTop = el.scrollHeight; });
+    };
+
+    /* sc — 메시지 발신자 유형 (서버 필드 senderTypeCd, 로컬 임시 메시지는 senderCd) */
+    const sc = (m) => (m && (m.senderTypeCd || m.senderCd)) || '';
+
+    /* imgSrc — 사진 메시지 표시 주소 (업로드 중이면 로컬 미리보기) */
+    const imgSrc = (m) => (m && (m._preview || m.msgText)) || '';
+    const openImg = (u) => { if (u) { window.open(u, '_blank', 'noopener'); } };
+
+    /* ── 사진 첨부 / 카메라 촬영 ─────────────────────────────────────────────
+       갤러리·파일 선택은 input[type=file], 촬영은 capture 입력(폰·태블릿에서 카메라 앱을 연다). 올리기 전에 긴 변 1280px 이하 JPEG 로 줄인다. */
+    const imgInput = ref(null);
+    const camInput = ref(null);
+    const imgUploading = ref(false);
+    const shrinkImage = async (file) => {
+      const MAX = 1280;
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bmp.width * scale));
+      canvas.height = Math.max(1, Math.round(bmp.height * scale));
+      canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      if (bmp.close) { bmp.close(); }
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      if (!blob) { throw new Error('이미지를 만들지 못했습니다.'); }
+      return new File([blob], 'chat_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+    };
+    const sendImageFile = async (file) => {
+      if (!file || !String(file.type).startsWith('image/') || !props.dtlId || imgUploading.value) { return; }
+      imgUploading.value = true;
+      let small = file;
+      try { small = await shrinkImage(file); } catch (_) { /* 축소 실패 시 원본으로 진행 */ }
+      messages.push({ chattMsgId: '_tmp_' + Date.now(), senderCd: 'ADMIN', msgTypeCd: 'IMAGE', msgText: '', _preview: URL.createObjectURL(small), sendDate: new Date().toISOString(), _pending: true });
+      const t = messages[messages.length - 1];   // 반응형 프록시로 다시 잡아야 화면이 갱신된다
+      scrollToBottom();
+      try {
+        const fd = new FormData();
+        fd.append('files', small);
+        fd.append('businessCode', 'chat');
+        const up = await window.boApi.post('co/cm/upload/multi', fd, window.coUtil.cofApiHdr('채팅관리', '사진첨부'));
+        const f = ((up.data && up.data.data && up.data.data.files) || [])[0];
+        if (!f || !f.cdnImgUrl) { throw new Error('업로드 응답에 사진 주소가 없습니다.'); }
+        const res = await boApiSvc.cmChatt.sendMsg(props.dtlId, { msgText: f.cdnImgUrl, msgTypeCd: 'IMAGE', refTypeCd: 'ATTACH', refId: f.attachId, senderTypeCd: 'ADMIN' }, '채팅관리', '사진전송');
+        const saved = res.data && res.data.data;
+        if (saved) { t.chattMsgId = saved.chattMsgId; t.sendDate = saved.sendDate; pollLastMsgId = saved.chattMsgId; }
+        if (t._preview) { URL.revokeObjectURL(t._preview); }
+        t._preview = '';
+        t.msgText = f.cdnImgUrl;
+        t._pending = false;
+      } catch (err) {
+        console.error('[sendImageFile]', err);
+        t._error = true;
+        t._pending = false;
+        showToast((err.response && err.response.data && err.response.data.message) || err.message || '사진 전송 실패', 'error');
+      } finally {
+        imgUploading.value = false;
+      }
+    };
+    const onPickImage = async (e) => {
+      const el = e.target;
+      const file = el.files && el.files[0];
+      el.value = '';
+      if (file) { await sendImageFile(file); }
     };
 
     /* sendReply — 답변 전송 (실제 API 호출) */
@@ -401,7 +464,7 @@ window.CmChattDtl = {
     columns.memberChatGrid = [
       { key: 'subject', label: '제목' },
       { key: '_status', label: '상태',
-        badge: (row) => row.chattStatusCd === 'IN_PROGRESS' ? 'badge-green' : 'badge-gray',
+        badge: (row) => (row.chattStatusCd === 'IN_PROGRESS' || row.chattStatusCd === 'ACTIVE') ? 'badge-green' : 'badge-gray',
         fmt: (v, row) => row.chattStatusCd },
       { key: 'lastMsgDate', label: '최근 메시지', style: 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', fmt: (v) => v || '-' },
       { key: 'regDate', label: '일시', fmt: (v) => v ? String(v).slice(0, 16) : '-' },
@@ -414,7 +477,7 @@ window.CmChattDtl = {
     columns.userChatGrid = [
       { key: 'subject', label: '제목' },
       { key: '_status', label: '상태',
-        badge: (row) => row.chattStatusCd === 'IN_PROGRESS' ? 'badge-green' : 'badge-gray',
+        badge: (row) => (row.chattStatusCd === 'IN_PROGRESS' || row.chattStatusCd === 'ACTIVE') ? 'badge-green' : 'badge-gray',
         fmt: (v, row) => row.chattStatusCd },
       { key: 'lastMsgDate', label: '최근 메시지', style: 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;', fmt: (v) => v || '-' },
       { key: 'regDate', label: '일시', fmt: (v) => v ? String(v).slice(0, 16) : '-' },
@@ -437,15 +500,15 @@ window.CmChattDtl = {
 
     /* fnMsgSenderLabel — 발신자 라벨 */
     const fnMsgSenderLabel = (msg) => {
-      if (msg.senderCd === 'ADMIN') { return '상담사'; }
-      if (msg.senderCd === 'MEMBER') { return '고객'; }
+      if (sc(msg) === 'ADMIN') { return '상담사'; }
+      if (sc(msg) === 'MEMBER') { return '고객'; }
       return '시스템';
     };
 
     /* cfChatStatus — 채팅 진행 중 여부 */
     const cfChatActive = computed(() => {
       const s = uiState.chat?.chattStatusCd;
-      return s === 'OPEN' || s === 'PENDING' || s === '진행중';
+      return s === 'OPEN' || s === 'PENDING' || s === 'ACTIVE' || s === 'IN_PROGRESS' || s === '진행중';
     });
 
     /* fnShareUrl — 이 채팅방 상세를 가리키는 독립 새창 딥링크 URL 생성 */
@@ -497,6 +560,7 @@ window.CmChattDtl = {
     return {
       columns,
       uiState, form, errors, refModal, msgBoxRef, cfUserChats, messages, // 상태 / 데이터
+      sc, imgSrc, openImg, imgInput, camInput, imgUploading, onPickImage, // 발신자 구분 / 사진 첨부
       handleBtnAction, handleSelectAction, fnCallbackModal, // dispatch + 모달 통합 콜백
       cfIsNew, cfDtlMode, cfMemberChats, cfChatActive, tabs, newTabs,   // computed / reactive(tabs)
       handleShareKakao, handleCopyLink, pdfAreaRef, pdfExporting, handleExportPdf, // 링크/카카오공유/PDF
@@ -568,19 +632,20 @@ window.CmChattDtl = {
               style="height:320px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:#fafafa;display:flex;flex-direction:column;gap:8px;">
               <!-- SYSTEM 메시지 -->
               <template v-for="msg in messages" :key="msg.chattMsgId">
-                <div v-if="msg.senderCd==='SYSTEM'"
+                <div v-if="sc(msg)==='SYSTEM'"
                   style="text-align:center;font-size:11px;color:#888;background:#f0f0f0;border-radius:6px;padding:4px 10px;margin:0 40px;">
                   {{ msg.msgText }}
                 </div>
                 <!-- MEMBER 메시지 (좌측) -->
-                <div v-else-if="msg.senderCd==='MEMBER'" style="display:flex;align-items:flex-end;gap:6px;">
+                <div v-else-if="sc(msg)==='MEMBER'" style="display:flex;align-items:flex-end;gap:6px;">
                   <div style="width:26px;height:26px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">
                     👤
                   </div>
                   <div>
                     <div style="font-size:10px;color:#888;margin-bottom:2px;">{{ uiState.chat.memberNm }}</div>
                     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:0 10px 10px 10px;padding:7px 10px;font-size:13px;line-height:1.5;max-width:280px;word-break:break-word;">
-                      {{ msg.msgText }}
+                      <img v-if="msg.msgTypeCd==='IMAGE'" :src="imgSrc(msg)" alt="첨부 사진" style="max-width:100%;max-height:220px;border-radius:8px;display:block;cursor:pointer;" @click="openImg(imgSrc(msg))" />
+                      <template v-else>{{ msg.msgText }}</template>
                       <span v-if="hasRef(msg)" class="ref-link" style="display:block;margin-top:4px;font-size:11px;" @click="handleSelectAction('chat-msgRef', msg)">
                         {{ refLabel(msg) }}
                       </span>
@@ -594,10 +659,11 @@ window.CmChattDtl = {
                     💁
                   </div>
                   <div>
-                    <div style="font-size:10px;color:#888;margin-bottom:2px;text-align:right;">상담사</div>
+                    <div style="font-size:10px;color:#888;margin-bottom:2px;text-align:right;">{{ msg.senderId==='TELEGRAM' ? (msg.senderNm || '상담원') + ' · 📱텔레그램' : '상담사' }}</div>
                     <div style="background:#e8587a;color:#fff;border-radius:10px 0 10px 10px;padding:7px 10px;font-size:13px;line-height:1.5;max-width:280px;word-break:break-word;"
                       :style="msg._error ? 'opacity:0.6;' : ''">
-                      {{ msg.msgText }}
+                      <img v-if="msg.msgTypeCd==='IMAGE'" :src="imgSrc(msg)" alt="보낸 사진" style="max-width:100%;max-height:220px;border-radius:8px;display:block;cursor:pointer;" :style="msg._pending ? 'opacity:0.6;' : ''" @click="openImg(imgSrc(msg))" />
+                      <template v-else>{{ msg.msgText }}</template>
                     </div>
                     <div style="font-size:10px;color:#bbb;margin-top:2px;text-align:right;">
                       <span v-if="msg._pending" style="color:#aaa;">전송 중...</span>
@@ -613,6 +679,12 @@ window.CmChattDtl = {
             </div>
             <!-- ===== ■.■.■.■.■. 답변 입력 =========================================== -->
             <div v-if="cfChatActive" style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <button class="btn btn_send" type="button" title="사진 첨부" :disabled="imgUploading" @click="imgInput && imgInput.click()" style="height:34px;padding:0 10px;">🖼️</button>
+                <button class="btn btn_send" type="button" title="카메라로 촬영" :disabled="imgUploading" @click="camInput && camInput.click()" style="height:34px;padding:0 10px;">📷</button>
+              </div>
+              <input ref="imgInput" type="file" accept="image/*" style="display:none;" @change="onPickImage" />
+              <input ref="camInput" type="file" accept="image/*" capture="environment" style="display:none;" @change="onPickImage" />
               <textarea class="form-control" v-model="uiState.replyText" rows="3" placeholder="답변 입력 후 Enter 또는 [전송] 클릭" style="resize:none;flex:1;"
                 @keydown.enter.exact.prevent="handleBtnAction('chat-sendReply')"></textarea>
               <button class="btn btn_send" @click="handleBtnAction('chat-sendReply')" style="white-space:nowrap;height:72px;">전송</button>
