@@ -15,7 +15,7 @@ window.SyBatchMng = {
 
     const batches = reactive([]);                  // 배치 목록 (서버 raw 데이터)
     const uiState = reactive({                     // UI 상태
-      checkAll: false, dragMoved: false, loading: false, error: null, focusedIdx: null,
+      checkAll: false, dragMoved: false, loading: false, error: null, focusedIdx: null, sortKey: 'batchNm', sortDir: 'asc',
     });
     const codes = reactive({ batch_status: [], active_statuses: [], batch_run_statuses: [], date_range_opts: [] });
 
@@ -35,6 +35,7 @@ window.SyBatchMng = {
       // 검색조건 초기화 + 재조회
       } else if (cmd === 'searchParam-reset') {
         Object.assign(searchParam, searchParamInit);
+        uiState.sortKey = 'batchNm'; uiState.sortDir = 'asc';   // 정렬 기본값(배치명 오름차순)
         resetSelectionAndHist();              // 선택정보 + 배치 실행이력 초기화
         return handleSearchList('DEFAULT');
       // 기간 옵션 변경
@@ -68,6 +69,12 @@ window.SyBatchMng = {
     const handleSelectAction = (cmd, param = {}) => {
       console.log(' ■■ SyBatchMng.js : handleSelectAction -> ', cmd, param);
       // 배치 그리드 행 클릭(포커스) → focusedIdx 갱신 + 해당 배치 실행이력 표시
+      // 배치목록 헤더 클릭 정렬 (같은 컬럼 재클릭 시 오름↔내림)
+      if (cmd === 'batches-sort') {
+        if (uiState.sortKey === param) { uiState.sortDir = uiState.sortDir === 'asc' ? 'desc' : 'asc'; }
+        else { uiState.sortKey = param; uiState.sortDir = 'asc'; }
+        return applySort();
+      }
       if (cmd === 'batches-rowSelect') {
         uiState.focusedIdx = param;
         return onBatchRowSelect(param);
@@ -130,6 +137,22 @@ window.SyBatchMng = {
 
     /* ##### [04] 내장 사용 함수 (이벤트 핸들러 on* / handle*) ############################ */
 
+    /* applySort — 배치목록(gridRows) 클라이언트 정렬. 목록이 전건(최대 1만) 로드되므로 화면에서 바로 정렬한다.
+       정렬키: batchNm / cronExpr / batchDesc / batchRunStatusCd(한글 라벨 기준) / batchLastRun(일시 문자열) */
+    const applySort = () => {
+      const { sortKey, sortDir } = uiState;
+      if (!sortKey) { return; }
+      const dir = sortDir === 'desc' ? -1 : 1;
+      const val = (r) => {
+        const v = r[sortKey];
+        if (sortKey === 'batchRunStatusCd') { return fnRunStatusLabel(v); }
+        if (sortKey === 'batchLastRun') { return (!v || v === '-') ? '' : String(v); }
+        return v == null ? '' : String(v);
+      };
+      gridRows.sort((a, b) => dir * val(a).localeCompare(val(b), 'ko'));
+      uiState.focusedIdx = null;             // 정렬하면 행 위치가 바뀌므로 포커스(파란 테두리) 해제
+    };
+
     /* resetSelectionAndHist — 좌측 트리/초기화 시 배치목록 선택정보 + 배치 실행이력(전체) 초기화 */
     const resetSelectionAndHist = () => {
       uiState.focusedIdx = null;             // 배치목록 선택(포커스) 행 해제 → 파란 테두리 제거
@@ -157,6 +180,7 @@ window.SyBatchMng = {
         batches.splice(0, batches.length, ...list);
         gridRows.splice(0);
         list.forEach(b => gridRows.push(makeRow(b)));
+        applySort();                          // 정렬 기준 적용(기본: 배치명 오름차순)
         uiState.error = null;
       } catch (err) {
         console.error('[catch-info]', err);
@@ -402,18 +426,18 @@ window.SyBatchMng = {
 
     // 기본 그리드
     columns.baseGrid = [
-      { key: 'batchNm',       label: '배치명',       style: 'min-width:120px;', edit: 'text', placeholder: '배치명',
+      { key: 'batchNm',       label: '배치명',       sortKey: 'batchNm', style: 'min-width:120px;', edit: 'text', placeholder: '배치명',
         cellStyle: (v, row) => fnIsRecent24h(row) ? 'font-weight:700;' : '' },
       { key: 'batchCode',     label: '배치코드',     style: 'min-width:160px;', edit: 'text', mono: true, placeholder: 'BATCH_CODE' },
-      { key: 'cronExpr',      label: 'Cron 표현식',  style: 'min-width:170px;' },
+      { key: 'cronExpr',      label: 'Cron 표현식',  sortKey: 'cronExpr', style: 'min-width:170px;' },
       { key: 'batchStatusCd', label: '활성',         style: 'width:74px;', align: 'center',
         edit: 'select', options: () => codes.active_statuses,
         badge: (row) => row._row_status === 'N' ? ('badge-xs ' + (row.batchStatusCd === 'ACTIVE' || row.batchStatusCd === 'ACTIVE' ? 'badge-green' : 'badge-gray')) : null },
-      { key: 'batchDesc',     label: '설명',         style: 'min-width:130px;', edit: 'text', placeholder: '설명' },
-      { key: 'batchLastRun',  label: '최종실행',     style: 'width:136px;', align: 'center',
+      { key: 'batchDesc',     label: '설명',         sortKey: 'batchDesc', style: 'min-width:130px;', edit: 'text', placeholder: '설명' },
+      { key: 'batchLastRun',  label: '최종실행',     sortKey: 'batchLastRun', style: 'width:136px;', align: 'center',
         cellStyle: 'font-size:11px;color:#555;white-space:nowrap;font-family:monospace;',
         fmt: (v) => fnFmtLastRun(v) },
-      { key: 'batchRunStatusCd',label: '최근상태',     style: 'width:80px;', align: 'center',
+      { key: 'batchRunStatusCd',label: '최근상태',     sortKey: 'batchRunStatusCd', style: 'width:80px;', align: 'center',
         html: true, fmt: (v, row) => row._row_status === 'N' ? fnRunStatusBadge(row.batchRunStatusCd) : '' },
       { key: 'siteNm',        label: '사이트',       style: 'width:55px;', align: 'center',
         cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => cfSiteNm.value },
@@ -444,7 +468,7 @@ window.SyBatchMng = {
       <!-- ===== ■.■.■. CRUD 그리드 ============================================ -->
       <bo-grid-crud
         :columns="columns.baseGrid" :rows="gridRows" row-key="batchId"
-        list-title="배치목록" :show-export="true" max-height="calc(100vh - 320px)"
+        list-title="배치목록" :show-export="true" max-height="400px" :sort-state="uiState" @sort="key => handleSelectAction('batches-sort', key)"
         :selected-key="histFilterBatchId"
         :focusedIdx="uiState.focusedIdx" @update:focusedIdx="idx => handleSelectAction('batches-rowSelect', idx)"
         v-model:checkAll="uiState.checkAll"
