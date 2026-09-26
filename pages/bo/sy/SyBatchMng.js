@@ -324,19 +324,29 @@ window.SyBatchMng = {
     /* cfShowRunNow — 즉시실행 버튼 노출 여부 */
     const cfShowRunNow = (row) => row._row_status !== 'I' && row._row_status !== 'D';
 
-    /* runNow — 즉시 실행 */
+    /* runNow — 수동 실행: 서버에서 실제로 배치를 한 번 실행하고(끝날 때까지 대기) 결과 상태·최근실행·실행횟수를 화면에 반영 */
     const runNow = async (row) => {
-      const ok = await showConfirm('즉시 실행', `[${row.batchNm}] 배치를 즉시 실행하시겠습니까?`);
+      const ok = await showConfirm('수동 실행', `[${row.batchNm}] 배치를 지금 실행하시겠습니까?
+(스케줄과 별개로 1회 실행되며, 데이터가 실제로 변경될 수 있습니다.)`);
       if (!ok) { return; }
       const src = batches.find(x => x.batchId === row.batchId);
-      row.batchRunStatusCd = '실행중';
-      if (src) { src.batchRunStatusCd = '실행중'; }
-      showToast('배치 실행을 시작했습니다.');
-      setTimeout(() => {
-        const now = new Date().toLocaleString('ko-KR').slice(0, 16);
-        row.batchRunStatusCd = '성공'; row.batchLastRun = now; row.batchRunCount = (row.batchRunCount || 0) + 1;
-        if (src) { src.batchRunStatusCd = '성공'; src.batchLastRun = now; src.batchRunCount = row.batchRunCount; }
-      }, 1500);
+      const setRun = (st, last, cnt) => {
+        [row, src].forEach(t => { if (!t) { return; } t.batchRunStatusCd = st; if (last !== undefined) { t.batchLastRun = last; } if (cnt !== undefined) { t.batchRunCount = cnt; } });
+      };
+      setRun('RUNNING');
+      showToast('배치를 실행하고 있습니다...');
+      try {
+        const res = await boApiSvc.syBatch.run(row.batchId, '배치관리', '수동실행');
+        const d = res.data?.data || {};
+        setRun(d.batchRunStatusCd || 'SUCCESS', d.batchLastRun ? String(d.batchLastRun).replace('T', ' ').slice(0, 16) : row.batchLastRun, d.batchRunCount ?? row.batchRunCount);
+        if (d.batchRunStatusCd === 'FAIL') { showToast(`[${row.batchNm}] 실행 중 오류가 발생했습니다. 배치 로그를 확인하세요.`, 'error', 0); }
+        else if (d.batchRunStatusCd === 'NO_HANDLER') { showToast(`[${row.batchNm}] 실행 핸들러가 없는 배치입니다.`, 'error', 0); }
+        else { showToast(`[${row.batchNm}] 실행 완료 (${((d.elapsedMs || 0) / 1000).toFixed(1)}초)`, 'success'); }
+      } catch (err) {
+        console.error('[catch-info]', err);
+        setRun('FAIL');
+        showToast(coUtil.cofErrMsg(err), 'error', 0);
+      }
     };
 
     /* openCronPicker — Cron 편집 모달 열기 */
