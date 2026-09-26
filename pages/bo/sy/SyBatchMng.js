@@ -146,6 +146,7 @@ window.SyBatchMng = {
       const val = (r) => {
         const v = r[sortKey];
         if (sortKey === 'batchRunStatusCd') { return fnRunStatusLabel(v); }
+        if (sortKey === 'lastRunTypeCd') { return fnRunTypeLabel(v); }
         if (sortKey === 'batchLastRun') { return (!v || v === '-') ? '' : String(v); }
         return v == null ? '' : String(v);
       };
@@ -413,6 +414,11 @@ window.SyBatchMng = {
       return s || '-';
     };
 
+    /* 실행구분 — AUTO 자동(Spring Boot 내부 배치) / MANUAL 수동(이 화면에서 직접 실행) / EXTERNAL 외부호출(Jenkins 에서 호출) */
+    const _RUN_TYPE_LABEL = { AUTO: '자동', MANUAL: '수동', EXTERNAL: '외부호출' };
+    const _RUN_TYPE_BADGE = { AUTO: 'badge-blue', MANUAL: 'badge-orange', EXTERNAL: 'badge-gray' };
+    const fnRunTypeLabel = v => _RUN_TYPE_LABEL[v] || v || '-';
+
     /* fnRunStatusLabel — 실행상태 한글 */
     const _RUN_STATUS_LABEL = { IDLE: '대기', RUNNING: '실행중', SUCCESS: '성공', FAIL: '실패', NO_HANDLER: '핸들러없음', PENDING: '대기중' };
     const fnRunStatusLabel = (v) => _RUN_STATUS_LABEL[v] || v || '-';
@@ -426,10 +432,14 @@ window.SyBatchMng = {
 
     // 기본 그리드
     columns.baseGrid = [
-      { key: 'batchNm',       label: '배치명',       sortKey: 'batchNm', style: 'min-width:120px;', edit: 'text', placeholder: '배치명',
+      { key: 'batchNm',       label: '배치명',       sortKey: 'batchNm', style: 'width:1%;white-space:nowrap;', edit: 'text', placeholder: '배치명',
         cellStyle: (v, row) => fnIsRecent24h(row) ? 'font-weight:700;' : '' },
-      { key: 'batchCode',     label: '배치코드',     style: 'min-width:160px;', edit: 'text', mono: true, placeholder: 'BATCH_CODE' },
-      { key: 'cronExpr',      label: 'Cron 표현식',  sortKey: 'cronExpr', style: 'min-width:170px;' },
+      { key: 'batchCode',     label: '배치코드',     style: 'width:1%;white-space:nowrap;', edit: 'text', mono: true, placeholder: 'BATCH_CODE' },
+      { key: 'cronExpr',      label: 'Cron 표현식',  sortKey: 'cronExpr', style: 'width:1%;white-space:nowrap;' },
+      { key: 'execFunc',      label: '실행함수',     sortKey: 'execFunc', style: 'width:1%;white-space:nowrap;', mono: true,
+        cellStyle: 'font-size:11px;color:#444;', fmt: (v) => v || '-' },
+      { key: 'lastRunTypeCd', label: '실행구분',     sortKey: 'lastRunTypeCd', style: 'width:1%;white-space:nowrap;', align: 'center',
+        fmt: (v) => fnRunTypeLabel(v), badge: (row) => (_RUN_TYPE_BADGE[row.lastRunTypeCd] || 'badge-gray') },
       { key: 'batchStatusCd', label: '활성',         style: 'width:74px;', align: 'center',
         edit: 'select', options: () => codes.active_statuses,
         badge: (row) => row._row_status === 'N' ? ('badge-xs ' + (row.batchStatusCd === 'ACTIVE' || row.batchStatusCd === 'ACTIVE' ? 'badge-green' : 'badge-gray')) : null },
@@ -468,7 +478,7 @@ window.SyBatchMng = {
       <!-- ===== ■.■.■. CRUD 그리드 ============================================ -->
       <bo-grid-crud
         :columns="columns.baseGrid" :rows="gridRows" row-key="batchId"
-        list-title="배치목록" :show-export="true" max-height="400px" :sort-state="uiState" @sort="key => handleSelectAction('batches-sort', key)"
+        list-title="배치목록" :show-row-id="false" :show-export="true" max-height="400px" :sort-state="uiState" @sort="key => handleSelectAction('batches-sort', key)"
         :selected-key="histFilterBatchId"
         :focusedIdx="uiState.focusedIdx" @update:focusedIdx="idx => handleSelectAction('batches-rowSelect', idx)"
         v-model:checkAll="uiState.checkAll"
