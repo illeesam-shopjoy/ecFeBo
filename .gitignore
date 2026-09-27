@@ -1,0 +1,10 @@
+# dist/ 는 빌드 산출물(scripts/build-minify.js 가 매번 새로 만듦) — 배포 시 서버로 직접 업로드되고,
+# 로컬/Jenkins 마다 압축 결과가 바이트 단위로 달라져(타임스탬프·경로 등) diff 소음만 커서 추적하지 않는다.
+dist/
+
+# Windows 에서 설치한 네이티브 모듈(esbuild 등)이 섞여 Jenkins(Linux, npm ci)와 충돌할 수 있어 추적하지 않는다.
+node_modules/
+
+# 로그 · 임시 파일
+*.log
+.DS_Store

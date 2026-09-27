@@ -1,1 +1,0 @@
-window.useFoDispStore=Pinia.defineStore("foDisp",{state:()=>({svDispStruc:{},svDispData:{}}),actions:{saSetDispData(s){s&&(s.dispStruc&&(this.svDispStruc=s.dispStruc),s.dispData&&(this.svDispData=s.dispData))},saClear(){this.svDispStruc={},this.svDispData={}}}});
