@@ -241,7 +241,12 @@ window.CmChattDtl = {
     const sc = (m) => (m && (m.senderTypeCd || m.senderCd)) || '';
 
     /* imgSrc — 사진 메시지 표시 주소 (업로드 중이면 로컬 미리보기) */
-    const imgSrc = (m) => (m && (m._preview || m.msgText)) || '';
+    /* 업로드 응답의 CDN 주소가 http://호스트:포트/… 형태로 올 수 있어, https 화면에서는 혼합 콘텐츠로 막힌다 → DSM 서브도메인(https://포트.호스트/…)으로 바꾼다 */
+    const fixHttpCdn = (u) => {
+      const m = /^http:\/\/([^:\/]+\.synology\.me):(\d+)(\/.*)$/.exec(u || '');
+      return (m && window.location.protocol === 'https:') ? ('https://' + m[2] + '.' + m[1] + m[3]) : u;
+    };
+    const imgSrc = (m) => fixHttpCdn(m && (m._preview || m.msgText)) || '';
     const openImg = (u) => { if (u) { window.open(u, '_blank', 'noopener'); } };
 
     /* ── 사진 첨부 / 카메라 촬영 ─────────────────────────────────────────────
