@@ -24,8 +24,10 @@ jobs:
           COMPARE: ${{ github.event.compare }}
           EVT: ${{ github.event_name }}
           URLS: |
-            🔗 http://illeesam.synology.me:22000 (FO) · http://illeesam.synology.me:22000/bo.html (BO)
-            🔗 https://22000.illeesam.synology.me (FO) · https://22000.illeesam.synology.me/bo.html (BO)
+            🔗 http://illeesam.synology.me:22000 (FO)
+            🔗 http://illeesam.synology.me:22000/bo.html (BO)
+            🔗 https://22000.illeesam.synology.me (FO)
+            🔗 https://22000.illeesam.synology.me/bo.html (BO)
         run: |
           [ -n "$TG_TOKEN" ] && [ -n "$TG_CHAT" ] || { echo "텔레그램 시크릿 없음 - 스킵"; exit 0; }
           TITLE=$(printf '%s' "$COMMITS" | head -n 1 | cut -c1-200)
@@ -50,7 +52,8 @@ jobs:
           COMPARE: ${{ github.event.compare }}
           EVT: ${{ github.event_name }}
           URLS: |
-            🔗 https://shopjoy-ecfebo.netlify.app (FO) · https://shopjoy-ecfebo.netlify.app/bo.html (BO)
+            🔗 https://shopjoy-ecfebo.netlify.app (FO)
+            🔗 https://shopjoy-ecfebo.netlify.app/bo.html (BO)
         run: |
           [ -n "$TG_TOKEN" ] && [ -n "$TG_CHAT" ] || { echo "운영 텔레그램 시크릿 없음 - 스킵"; exit 0; }
           TITLE=$(printf '%s' "$COMMITS" | head -n 1 | cut -c1-200)
