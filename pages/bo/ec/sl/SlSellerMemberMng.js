@@ -1,6 +1,6 @@
-/* ShopJoy Admin - 판매자 소속계정 (mb_seller_member) */
-window.MbSellerMemberMng = {
-  name: 'MbSellerMemberMng',
+/* ShopJoy Admin - 판매자 소속계정 (sl_seller_member) */
+window.SlSellerMemberMng = {
+  name: 'SlSellerMemberMng',
   props: {
     navigate:     { type: Function, required: true }, // 페이지 이동
   },
@@ -16,7 +16,7 @@ window.MbSellerMemberMng = {
     const uiState = reactive({ loading: false, error: null, searchSellerId: null,
       bizSearchType: '', bizSearchValue: '', bizTypeFlt: '', formMode: '', dtlMode: 'view' }); // dtlMode: 'view'|'edit' — 기본은 항상 view
     const cfDtlMode = computed(() => uiState.dtlMode === 'view');
-    /* roleCd(OWNER/STAFF)·statusCd(ACTIVE/REMOVED) — mb_seller_member 전용 코드로, 신설
+    /* roleCd(OWNER/STAFF)·statusCd(ACTIVE/REMOVED) — sl_seller_member 전용 코드로, 신설
        sy_code 그룹이 아니라서(과제 지시 대상은 SELLER_TYPE_CD/SELLER_STATUS_CD 뿐) 로컬 하드코딩한다.
        BOOL_YN(Y/N) 만 공통코드에서 로드한다(isMain/isDefault). */
     const codes = reactive({
@@ -37,7 +37,7 @@ window.MbSellerMemberMng = {
 
     /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleBtnAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerMemberMng.js : handleBtnAction -> ', cmd, param);
+      console.log(' ■■ SlSellerMemberMng.js : handleBtnAction -> ', cmd, param);
       // 판매자 검색조건으로 목록 조회
       if (cmd === 'searchParam-list') {
         return onSearch();
@@ -72,7 +72,7 @@ window.MbSellerMemberMng = {
 
     /* handleSelectAction — 그리드 행/노드/모달 선택 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleSelectAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerMemberMng.js : handleSelectAction -> ', cmd, param);
+      console.log(' ■■ SlSellerMemberMng.js : handleSelectAction -> ', cmd, param);
       // 판매자 그리드 [선택] 버튼 클릭 → 선택 판매자 변경
       if (cmd === 'sellers-rowSelect') {
         return pickSellerRow(param);
@@ -92,7 +92,7 @@ window.MbSellerMemberMng = {
 
     /* handleGridCellAction — 그리드 셀 클릭 라우터. colKey 기준 분기 (판매자 선택 / 소속계정 수정) */
     const handleGridCellAction = (cmd, colKey, row, e = {}) => {
-      console.log(' ■■ MbSellerMemberMng.js : handleGridCellAction -> ', cmd, colKey, row);
+      console.log(' ■■ SlSellerMemberMng.js : handleGridCellAction -> ', cmd, colKey, row);
       if (cmd === 'sellers-cellClick') {
         // 판매자 선택 — 행 아무 셀이나 클릭 시 선택
         return pickSellerRow(row);
@@ -128,14 +128,14 @@ window.MbSellerMemberMng = {
         if (params.searchValue && !params.searchType) {
           params.searchType = 'sellerNm,sellerId';
         }
-        const res = await boApiSvc.mbSeller.getPage(params, '판매자소속계정관리', '조회');
+        const res = await boApiSvc.slSeller.getPage(params, '판매자소속계정관리', '조회');
         const d = res.data?.data || {};
         sellers.splice(0, sellers.length, ...(d.pageList || d.list || []));
         sellerGridPager.pageTotalCount = d.pageTotalCount || 0;
         sellerGridPager.pageTotalPage  = d.pageTotalPage  || 1;
         coUtil.cofBuildPagerNums(sellerGridPager);
       } catch(e) {
-        console.error('[MbSellerMemberMng] seller load failed', e);
+        console.error('[SlSellerMemberMng] seller load failed', e);
       } finally {
         uiState.loading = false;
       }
@@ -145,7 +145,7 @@ window.MbSellerMemberMng = {
     const fnLoadCodes = async () => {
       const codeStore = window.sfGetBoCodeStore();
       /* 필요한 코드그룹만 지연 로딩 — 캐시에 있으면 API 가 나가지 않는다 */
-      await codeStore.saLoadCodes(['BOOL_YN'], {compNm: 'MbSellerMemberMng'});
+      await codeStore.saLoadCodes(['BOOL_YN'], {compNm: 'SlSellerMemberMng'});
       codes.BOOL_YN = codeStore.sgGetGrpCodes('BOOL_YN');
     };
 
@@ -201,14 +201,14 @@ window.MbSellerMemberMng = {
       uiState.loading = true;
       try {
         const params = { sellerId, pageNo: memberGridPager.pageNo, pageSize: memberGridPager.pageSize };
-        const res = await boApiSvc.mbSellerMember.getPage(params, '판매자소속계정관리', '조회');
+        const res = await boApiSvc.slSellerMember.getPage(params, '판매자소속계정관리', '조회');
         const d = res.data?.data || {};
         sellerMembers.splice(0, sellerMembers.length, ...(d.pageList || d.list || []));
         memberGridPager.pageTotalCount = d.pageTotalCount || 0;
         memberGridPager.pageTotalPage  = d.pageTotalPage  || 1;
         coUtil.cofBuildPagerNums(memberGridPager);
       } catch(e) {
-        console.error('[MbSellerMemberMng] member load failed', e);
+        console.error('[SlSellerMemberMng] member load failed', e);
       } finally {
         uiState.loading = false;
       }
@@ -288,8 +288,8 @@ window.MbSellerMemberMng = {
       if (!ok) { return; }
       try {
         const res = isNew
-          ? await boApiSvc.mbSellerMember.create({ ...formData }, '판매자소속계정관리', '등록')
-          : await boApiSvc.mbSellerMember.update(formData.sellerMemberId, { ...formData }, '판매자소속계정관리', '저장');
+          ? await boApiSvc.slSellerMember.create({ ...formData }, '판매자소속계정관리', '등록')
+          : await boApiSvc.slSellerMember.update(formData.sellerMemberId, { ...formData }, '판매자소속계정관리', '저장');
         showToast(isNew?'등록되었습니다.':'저장되었습니다.', 'success');
         await loadSellerMembers(formData.sellerId);
         if (isNew) {
@@ -311,7 +311,7 @@ window.MbSellerMemberMng = {
       const ok = await showConfirm('삭제', `[${m.memberNm || m.userNm || m.sellerMemberId}] 소속계정을 삭제하시겠습니까?`);
       if (!ok) { return; }
       try {
-        const res = await boApiSvc.mbSellerMember.remove(m.sellerMemberId, '판매자소속계정관리', '삭제');
+        const res = await boApiSvc.slSellerMember.remove(m.sellerMemberId, '판매자소속계정관리', '삭제');
         showToast('삭제되었습니다.', 'success');
         await loadSellerMembers(m.sellerId);
         if (uiState.formMode === 'edit' && formData.sellerMemberId === m.sellerMemberId) { closeForm(); }

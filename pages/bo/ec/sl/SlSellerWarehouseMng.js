@@ -1,6 +1,6 @@
-/* ShopJoy Admin - 판매자창고관리 (mb_seller_warehouse) */
-window.MbSellerWarehouseMng = {
-  name: 'MbSellerWarehouseMng',
+/* ShopJoy Admin - 판매자창고관리 (sl_seller_warehouse) */
+window.SlSellerWarehouseMng = {
+  name: 'SlSellerWarehouseMng',
   props: {
     navigate:     { type: Function, required: true }, // 페이지 이동
   },
@@ -42,7 +42,7 @@ window.MbSellerWarehouseMng = {
 
     /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleBtnAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerWarehouseMng.js : handleBtnAction -> ', cmd, param);
+      console.log(' ■■ SlSellerWarehouseMng.js : handleBtnAction -> ', cmd, param);
       // 검색조건으로 목록 조회
       if (cmd === 'searchParam-list') {
         gridPager.pageNo = 1;
@@ -111,7 +111,7 @@ window.MbSellerWarehouseMng = {
 
     /* handleSelectAction — 그리드 행/노드/모달 선택 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleSelectAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerWarehouseMng.js : handleSelectAction -> ', cmd, param);
+      console.log(' ■■ SlSellerWarehouseMng.js : handleSelectAction -> ', cmd, param);
       // 페이지 크기 변경
       if (cmd === 'warehouses-pager-sizeChange') {
         return onSizeChange();
@@ -125,7 +125,7 @@ window.MbSellerWarehouseMng = {
 
     /* handleGridCellAction — 그리드 셀 클릭 dispatch. cmd='{영역}-cellClick', e={row,col,colKey,colIndex,rowIndex}. */
     const handleGridCellAction = (cmd, colKey, row, e = {}) => {
-      console.log(' ■■ MbSellerWarehouseMng.js : handleGridCellAction -> ', cmd, colKey, row);
+      console.log(' ■■ SlSellerWarehouseMng.js : handleGridCellAction -> ', cmd, colKey, row);
       if (cmd === 'warehouses-cellClick') {
         // 행 액션 버튼 (colKey='btn_*') — [수정]/[삭제] 등
         if (colKey === 'btn_row_edit') { return openEdit(row); }
@@ -142,7 +142,7 @@ window.MbSellerWarehouseMng = {
 
     /* fnCallbackModal — 모달 콜백 통합 dispatch. cmd=모달명, param=호출 파라미터, result=응답 결과 (null=닫기) */
     const fnCallbackModal = (popCmd, param, result) => {
-      console.log(' ■■ MbSellerWarehouseMng : fnCallbackModal -> ', popCmd, param, result);
+      console.log(' ■■ SlSellerWarehouseMng : fnCallbackModal -> ', popCmd, param, result);
       if (popCmd === 'cmPopup-seller-pick') {
         const target = uiState.showSellerModal;   // 'filter' | 'form'
         uiState.showSellerModal = false;
@@ -194,7 +194,7 @@ window.MbSellerWarehouseMng = {
         if (params.searchValue && !params.searchType) {
           params.searchType = 'warehouseNm,sellerNm,contactNm';
         }
-        const res = await boApiSvc.mbSellerWarehouse.getPage(params, '판매자창고관리', '목록조회');
+        const res = await boApiSvc.slSellerWarehouse.getPage(params, '판매자창고관리', '목록조회');
         const data = res.data?.data;
         warehouses.splice(0, warehouses.length, ...(data?.pageList || []));
         gridPager.pageTotalCount = data?.pageTotalCount || warehouses.length;
@@ -226,7 +226,7 @@ window.MbSellerWarehouseMng = {
     const fnLoadCodes = async () => {
       const codeStore = window.sfGetBoCodeStore();
       /* 필요한 코드그룹만 지연 로딩 — 캐시에 있으면 API 가 나가지 않는다 */
-      await codeStore.saLoadCodes(['BOOL_YN', 'DATE_RANGE_OPT'], {compNm: 'MbSellerWarehouseMng'});
+      await codeStore.saLoadCodes(['BOOL_YN', 'DATE_RANGE_OPT'], {compNm: 'SlSellerWarehouseMng'});
       codes.BOOL_YN = codeStore.sgGetGrpCodes('BOOL_YN');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
     };
@@ -309,8 +309,8 @@ window.MbSellerWarehouseMng = {
       if (!ok) { return; }
       try {
         const res = isNew
-          ? await boApiSvc.mbSellerWarehouse.create({ ...formData }, '판매자창고관리', '등록')
-          : await boApiSvc.mbSellerWarehouse.update(formData.warehouseId, { ...formData }, '판매자창고관리', '저장');
+          ? await boApiSvc.slSellerWarehouse.create({ ...formData }, '판매자창고관리', '등록')
+          : await boApiSvc.slSellerWarehouse.update(formData.warehouseId, { ...formData }, '판매자창고관리', '저장');
         showToast(isNew?'등록되었습니다.':'저장되었습니다.', 'success');
         await handleSearchList('RELOAD');
         if (isNew) {
@@ -333,7 +333,7 @@ window.MbSellerWarehouseMng = {
       const ok = await showConfirm('삭제', `[${w.warehouseNm}] 창고를 삭제하시겠습니까?`);
       if (!ok) { return; }
       try {
-        await boApiSvc.mbSellerWarehouse.remove(w.warehouseId, '판매자창고관리', '삭제');
+        await boApiSvc.slSellerWarehouse.remove(w.warehouseId, '판매자창고관리', '삭제');
         showToast('삭제되었습니다.', 'success');
         await handleSearchList('RELOAD');
         if (formData.warehouseId === w.warehouseId) { closeForm(); }

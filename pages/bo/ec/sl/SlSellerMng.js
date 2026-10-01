@@ -1,6 +1,6 @@
-/* ShopJoy Admin - 판매자관리 (mb_seller) */
-window.MbSellerMng = {
-  name: 'MbSellerMng',
+/* ShopJoy Admin - 판매자관리 (sl_seller) */
+window.SlSellerMng = {
+  name: 'SlSellerMng',
   props: {
     navigate:     { type: Function, required: true }, // 페이지 이동
     openNewWindow: { type: Function, default: () => {} }, // 실제 새 브라우저 창으로 열기 (Ctrl+클릭)
@@ -25,7 +25,7 @@ window.MbSellerMng = {
 
     /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleBtnAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerMng.js : handleBtnAction -> ', cmd, param);
+      console.log(' ■■ SlSellerMng.js : handleBtnAction -> ', cmd, param);
       // 검색조건으로 목록 조회
       if (cmd === 'searchParam-list') {
         baseGridPager.pageNo = 1;
@@ -42,7 +42,7 @@ window.MbSellerMng = {
         return onDateRangeChange();
       // 판매자 신규 등록 (인라인 패널 / Ctrl·휠클릭 시 새창)
       } else if (cmd === 'sellers-add') {
-        if (param && (param.ctrlKey || param.metaKey || param.button === 1)) { return props.openNewWindow('mbSellerDtl', null, 'new'); }
+        if (param && (param.ctrlKey || param.metaKey || param.button === 1)) { return props.openNewWindow('slSellerDtl', null, 'new'); }
         return openNew();
       // 판매자 목록 재조회
       } else if (cmd === 'sellers-reload') {
@@ -63,7 +63,7 @@ window.MbSellerMng = {
 
     /* handleSelectAction — 그리드 행/노드/모달 선택 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleSelectAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerMng.js : handleSelectAction -> ', cmd, param);
+      console.log(' ■■ SlSellerMng.js : handleSelectAction -> ', cmd, param);
       // 페이지 크기 변경
       if (cmd === 'sellers-pager-sizeChange') {
         return onSizeChange();
@@ -75,18 +75,18 @@ window.MbSellerMng = {
     /* handleGridCellAction — 그리드 셀 클릭 dispatch. cmd='{영역}-cellClick', e={row,col,colKey,colIndex,rowIndex}.
        e.colKey(클릭 컬럼명) 기준으로 셀별 동작 분기, e.row 행 객체 활용 */
     const handleGridCellAction = (cmd, colKey, row, e = {}) => {
-      console.log(' ■■ MbSellerMng.js : handleGridCellAction -> ', cmd, colKey, row);
+      console.log(' ■■ SlSellerMng.js : handleGridCellAction -> ', cmd, colKey, row);
       if (cmd === 'sellers-cellClick') {
         // 행 액션 버튼 (colKey='btn_*') — [수정]/[삭제] 등
         if (colKey === 'btn_row_edit') {
-          if (e && (e.ctrlKey || e.metaKey || e.button === 1)) { return props.openNewWindow('mbSellerDtl', row.sellerId, 'edit'); }
+          if (e && (e.ctrlKey || e.metaKey || e.button === 1)) { return props.openNewWindow('slSellerDtl', row.sellerId, 'edit'); }
           return handleLoadDetail(row.sellerId);
         }
         if (colKey === 'btn_row_delete') { return handleDelete(row); }
         // 보기모드 트리거 컬럼: 제목(link) 셀 + 행번호(__no__) + VIEW_COLS 명시 헤더명
         const VIEW_COLS = ['__no__'];
         if ((e.col && e.col.link) || VIEW_COLS.includes(colKey)) {
-          if (e.ctrlKey || e.metaKey || e.button === 1) { return props.openNewWindow('mbSellerDtl', row.sellerId); }
+          if (e.ctrlKey || e.metaKey || e.button === 1) { return props.openNewWindow('slSellerDtl', row.sellerId); }
           return loadView(row.sellerId);
         }
       } else {
@@ -139,7 +139,7 @@ window.MbSellerMng = {
         if (params.searchValue && !params.searchType) {
           params.searchType = 'sellerNm,sellerId';
         }
-        const res = await boApiSvc.mbSeller.getPage(params, '판매자관리', '목록조회');
+        const res = await boApiSvc.slSeller.getPage(params, '판매자관리', '목록조회');
         const data = res.data?.data;
         sellers.splice(0, sellers.length, ...(data?.pageList || []));
         baseGridPager.pageTotalCount = data?.pageTotalCount || sellers.length;
@@ -184,7 +184,7 @@ window.MbSellerMng = {
 
     /* inlineNavigate — 인라인 Dtl 의 navigate 콜백 */
     const inlineNavigate = (pg, opts = {}) => {
-      if (pg === 'mbSellerMng') {
+      if (pg === 'slSellerMng') {
         /* 저장 완료 등: 영역은 유지하고 빈 신규 폼으로 초기화 */
         if (opts.reload) { handleSearchList('RELOAD'); }
         resetDetailToNew();
@@ -214,7 +214,7 @@ window.MbSellerMng = {
       if (idx !== -1) { sellers.splice(idx, 1); }
       if (detailPanel.selectedId === v.sellerId) { resetDetailToNew(); }
       try {
-        const res = await boApiSvc.mbSeller.remove(v.sellerId, '판매자관리', '삭제');
+        const res = await boApiSvc.slSeller.remove(v.sellerId, '판매자관리', '삭제');
         if (showToast) { showToast('삭제되었습니다.', 'success'); }
       } catch (err) {
         console.error('[catch-info]', err);
@@ -238,7 +238,7 @@ window.MbSellerMng = {
     const fnLoadCodes = async () => {
       const codeStore = window.sfGetBoCodeStore();
       /* 필요한 코드그룹만 지연 로딩 — 캐시에 있으면 API 가 나가지 않는다 */
-      await codeStore.saLoadCodes(['SELLER_TYPE_CD', 'SELLER_STATUS_CD', 'DATE_RANGE_OPT'], {compNm: 'MbSellerMng'});
+      await codeStore.saLoadCodes(['SELLER_TYPE_CD', 'SELLER_STATUS_CD', 'DATE_RANGE_OPT'], {compNm: 'SlSellerMng'});
       codes.seller_type_cd = codeStore.sgGetGrpCodes('SELLER_TYPE_CD');
       codes.seller_status_cd = codeStore.sgGetGrpCodes('SELLER_STATUS_CD');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
@@ -371,13 +371,13 @@ window.MbSellerMng = {
     <bo-pager :pager="baseGridPager" :on-set-page="n => handleBtnAction('sellers-pager-setPage', n)" :on-size-change="() => handleSelectAction('sellers-pager-sizeChange')" />
   </bo-container>
   <!-- ===== ■. 상세 패널 (항상 표시) ====================== -->
-  <mb-seller-dtl :key="cfDetailKey" :navigate="inlineNavigate" :dtl-id="cfDetailEditId"
+  <sl-seller-dtl :key="cfDetailKey" :navigate="inlineNavigate" :dtl-id="cfDetailEditId"
     :dtl-mode="detailPanel.openMode === 'edit' ? (cfDetailEditId ? 'edit' : 'new') : 'view'"
     :active="detailPanel.active"
     :reload-trigger="detailPanel.reloadTrigger"
   />
   <!-- ===== ■. 엑셀 다운로드 모달 (즉시/예약 + 진행중 안내 + 강제취소) ========== -->
-  <bo-excel-down-modal :show="excelModal.show" domain="mbSeller"
+  <bo-excel-down-modal :show="excelModal.show" domain="slSeller"
     area-nm="판매자관리" :columns="columns.baseGrid" ui-nm="판매자관리" :params="buildExcelParams()"
     @close="excelModal.show = false" />
 </bo-page>

@@ -1,6 +1,6 @@
-/* ShopJoy Admin - 판매자관리 상세/등록 (mb_seller) */
-window.MbSellerDtl = {
-  name: 'MbSellerDtl',
+/* ShopJoy Admin - 판매자관리 상세/등록 (sl_seller) */
+window.SlSellerDtl = {
+  name: 'SlSellerDtl',
   props: {
     navigate:      { type: Function, required: true },        // 페이지 이동
     dtlId:         { type: String, default: null },           // 수정 대상 ID
@@ -38,7 +38,7 @@ window.MbSellerDtl = {
 
     /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleBtnAction = (cmd, param = {}) => {
-      console.log(' ■■ MbSellerDtl.js : handleBtnAction -> ', cmd, param);
+      console.log(' ■■ SlSellerDtl.js : handleBtnAction -> ', cmd, param);
       // 폼 저장 (신규 등록 또는 수정)
       if (cmd === 'form-save') {
         return handleSave();
@@ -70,7 +70,7 @@ window.MbSellerDtl = {
 
     /* fnCallbackModal — 모달 콜백 통합 dispatch. cmd=모달명, param=호출 파라미터, result=응답 결과 (null=닫기) */
     const fnCallbackModal = (popCmd, param, result) => {
-      console.log(' ■■ MbSellerDtl : fnCallbackModal -> ', popCmd, param, result);
+      console.log(' ■■ SlSellerDtl : fnCallbackModal -> ', popCmd, param, result);
       if (popCmd === 'cmPopup-vendor-pick') {
         uiState.showVendorModal = false;
         if (result == null) { return; }
@@ -89,7 +89,7 @@ window.MbSellerDtl = {
       if (cfIsNew.value) { return; }
       uiState.loading = true;
       try {
-        const res = await boApiSvc.mbSeller.getById(props.dtlId, '판매자관리', '상세조회');
+        const res = await boApiSvc.slSeller.getById(props.dtlId, '판매자관리', '상세조회');
         const data = res.data?.data;
         if (data) { Object.assign(form, data); }
         uiState.error = null;
@@ -115,9 +115,9 @@ window.MbSellerDtl = {
       const ok = await showConfirm(cfIsNew.value ? '등록' : '저장', cfIsNew.value ? '등록하시겠습니까?' : '저장하시겠습니까?');
       if (!ok) { return; }
       try {
-        const res = await (cfIsNew.value ? boApiSvc.mbSeller.create({ ...form }, '판매자관리', '등록') : boApiSvc.mbSeller.update(form.sellerId, { ...form }, '판매자관리', '저장'));
+        const res = await (cfIsNew.value ? boApiSvc.slSeller.create({ ...form }, '판매자관리', '등록') : boApiSvc.slSeller.update(form.sellerId, { ...form }, '판매자관리', '저장'));
         if (showToast) { showToast(cfIsNew.value ? '등록되었습니다.' : '저장되었습니다.', 'success'); }
-        if (props.navigate) { props.navigate('mbSellerMng', { reload: true }); }
+        if (props.navigate) { props.navigate('slSellerMng', { reload: true }); }
       } catch (err) {
         console.error('[catch-info]', err);
         const errMsg = (err.response?.data?.message) || err.message || '오류가 발생했습니다.';
@@ -131,9 +131,9 @@ window.MbSellerDtl = {
       const ok = await showConfirm('삭제', `[${form.sellerNm}] 판매자를 삭제하시겠습니까?`);
       if (!ok) { return; }
       try {
-        await boApiSvc.mbSeller.remove(form.sellerId, '판매자관리', '삭제');
+        await boApiSvc.slSeller.remove(form.sellerId, '판매자관리', '삭제');
         showToast('삭제되었습니다.', 'success');
-        props.navigate('mbSellerMng', { reload: true });
+        props.navigate('slSellerMng', { reload: true });
       } catch (err) {
         console.error('[catch-info]', err);
         const errMsg = (err.response?.data?.message) || err.message || '오류가 발생했습니다.';
@@ -149,7 +149,7 @@ window.MbSellerDtl = {
       try {
         const codeStore = window.sfGetBoCodeStore();
         /* 필요한 코드그룹만 지연 로딩 — 캐시에 있으면 API 가 나가지 않는다 */
-        await codeStore.saLoadCodes(['SELLER_TYPE_CD', 'SELLER_STATUS_CD'], {compNm: 'MbSellerDtl'});
+        await codeStore.saLoadCodes(['SELLER_TYPE_CD', 'SELLER_STATUS_CD'], {compNm: 'SlSellerDtl'});
         codes.seller_type_cd = codeStore.sgGetGrpCodes('SELLER_TYPE_CD');
         codes.seller_status_cd = codeStore.sgGetGrpCodes('SELLER_STATUS_CD');
       } catch (err) {
