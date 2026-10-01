@@ -152,7 +152,8 @@ window.PmCouponMng = {
 /* 하단 상세 */
     const uiStateDetail = reactive({ selectedId: '__new__', openMode: 'view', reloadTrigger: 0, resetSeq: 0, active: false }); // 진입 시 빈 신규 폼(비활성). 행 선택/신규 시 active=true
 
-    const searchParam = reactive({ searchType: '', searchValue: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', couponStatusCd: '',
+    const sellers = reactive([]);   /* 판매자 목록 (검색조건 select, 2026-10-02) */
+    const searchParam = reactive({ sellerId: '', searchType: '', searchValue: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', couponStatusCd: '',
       memberId: '', memberNm: '', mdUserId: '', mdUserNm: '', prodId: '', prodNm: '', vendorId: '', vendorNm: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
@@ -220,11 +221,22 @@ window.PmCouponMng = {
     /* initPage — 화면 로드 시퀀스.
        코드 응답을 받은 뒤 초기 조회를 시작한다 — 코드 기반 select·라벨·기본값이
        빈 상태로 첫 조회가 나가는 것을 막는다(순서가 코드에 드러나도록 한 곳에 모았다). */
+    /* fnLoadSellers — 검색조건 판매자 select 목록 로드 (2026-10-02, 셀러 Phase 2 · 2D) */
+    const fnLoadSellers = async () => {
+      try {
+        const res = await boApiSvc.slSeller.getPage({ pageNo: 1, pageSize: 500 }, '판매자목록', '조회');
+        sellers.splice(0, sellers.length, ...(res.data?.data?.pageList || []));
+      } catch (err) {
+        console.error('[catch-info]', err);
+      }
+    };
+
     const initPage = async () => {
       /* 검색조건 초기값 (계산이 필요한 항목) */
       const today = new Date(); const thisYear = today.getFullYear();
       Object.assign(searchParam, { dateRangeType: 'reg_date', dateRangeStart: `${thisYear - 3}-01-01`, dateRangeEnd: `${thisYear}-12-31` });
       await fnLoadCodes();
+      await fnLoadSellers();
       if (props.initSearchValue) {
         searchParam.searchValue = props.initSearchValue;
         searchParam.dateRangeStart = ''; searchParam.dateRangeEnd = '';
@@ -352,6 +364,7 @@ window.PmCouponMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleDateRangeChange() },
+          { key: 'sellerId', label: '판매자', type: 'select', options: () => sellers.map(x => ({ value: x.sellerId, label: x.sellerNm })), nullLabel: '판매자 전체' },
           { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
     ];
 
@@ -373,6 +386,7 @@ window.PmCouponMng = {
       { key: 'couponStatusCd', label: '상태',
         badge: (row) => fnStatusBadge(row.couponStatusCdNm || row.couponStatusCd),
         fmt: (v, row) => row.couponStatusCdNm || row.couponStatusCd },
+      { key: 'sellerNm', label: '판매자', fmt: (v, r) => v || (r.sellerId ? r.sellerId : '플랫폼') },
       { key: 'siteNm',         label: '사이트명', cellStyle: 'color:#2563eb' },
     ];
 

@@ -158,7 +158,8 @@ window.PdProdMng = {
         console.warn('[fnCallbackModal] unknown popCmd:', popCmd);
       }
     };
-    const searchParam = reactive({
+    const sellers = reactive([]);   /* 판매자 목록 (검색조건 select, 2026-10-02) */
+    const searchParam = reactive({ sellerId: '',
       /* ⚠ 검색 키는 백엔드 PdProdDto.Request 필드명과 일치해야 한다.
          이름이 다르면 Spring 바인딩에서 조용히 버려져 "필터가 안 걸리는" 버그가 된다(에러 없음).
          cate 는 표시용 카테고리명, categoryId 가 실제 서버 전송 값. */
@@ -396,6 +397,16 @@ window.PdProdMng = {
     /* initPage — 화면 로드 시퀀스.
        코드 응답을 받은 뒤 초기 조회를 시작한다 — 코드 기반 select·라벨·기본값이
        빈 상태로 첫 조회가 나가는 것을 막는다(순서가 코드에 드러나도록 한 곳에 모았다). */
+    /* fnLoadSellers — 검색조건 판매자 select 목록 로드 (2026-10-02, 셀러 Phase 2 · 2D) */
+    const fnLoadSellers = async () => {
+      try {
+        const res = await boApiSvc.slSeller.getPage({ pageNo: 1, pageSize: 500 }, '판매자목록', '조회');
+        sellers.splice(0, sellers.length, ...(res.data?.data?.pageList || []));
+      } catch (err) {
+        console.error('[catch-info]', err);
+      }
+    };
+
     const initPage = async () => {
       /* 검색조건 초기값 (계산이 필요한 항목) */
       const today = new Date(); const thisYear = today.getFullYear();
@@ -406,6 +417,7 @@ window.PdProdMng = {
         prodTypeCd: props.fixedProdTypeCd || '',
       });
       await fnLoadCodes();
+      await fnLoadSellers();
       if (props.initSearchValue) {
         searchParam.searchValue = props.initSearchValue;
         searchParam.dateRangeStart = ''; searchParam.dateRangeEnd = '';
@@ -466,6 +478,7 @@ window.PdProdMng = {
         typeOptions: () => codes.prod_date_types,
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+          { key: 'sellerId', label: '판매자', type: 'select', options: () => sellers.map(x => ({ value: x.sellerId, label: x.sellerNm })), nullLabel: '판매자 전체' },
           { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
     ];
 
@@ -509,6 +522,7 @@ window.PdProdMng = {
       { key: 'saleStartDate', label: '판매시작일시', fmt: (v) => v ? String(v).slice(0, 16).replace('T', ' ') : '-' },
       { key: 'saleEndDate',   label: '판매종료일시', fmt: (v) => v ? String(v).slice(0, 16).replace('T', ' ') : '-' },
       { key: 'regDate',      label: '등록일', sortKey: 'reg',  fmt: (v) => coUtil.cofYmd(v) || '-' },
+      { key: 'sellerNm', label: '판매자', fmt: (v, r) => v || (r.sellerId ? r.sellerId : '플랫폼') },
       { key: 'siteNm',       label: '사이트명', cellStyle: 'color:#2563eb;' },
     ];
 

@@ -626,6 +626,7 @@ window.PdProdDtl = {
       prodId: null,
       prodNm: '', prodCode: '',
       categoryId: '', brandId: '', brandNm: '', vendorId: '', vendorNm: '',
+      sellerId: '', sellerNm: '', warehouseId: '', warehouseNm: '',   /* 판매자(상품 소유) · 출고 창고 — 2026-10-02 셀러 Phase 2 */
       mdUserId: '',
       prodTypeCd: 'OPTION', prodStatusCd: 'DRAFT', unsaleMsg: '',
       dlivTmpltId: '', dlivMethodCd: '',
@@ -1615,6 +1616,10 @@ window.PdProdDtl = {
           form.brandNm        = p.brandNm || '';
           form.vendorId       = p.vendorId || '';
           form.vendorNm       = p.vendorNm || '';
+          form.sellerId       = p.sellerId || '';
+          form.sellerNm       = p.sellerNm || '';
+          form.warehouseId    = p.warehouseId || '';
+          form.warehouseNm    = p.warehouseNm || '';
           form.mdUserId       = p.mdUserId || '';
           form.prodTypeCd     = p.prodTypeCd || 'SINGLE';
           form.prodStatusCd   = p.prodStatusCd || 'DRAFT';
@@ -1724,12 +1729,36 @@ window.PdProdDtl = {
       document.addEventListener('mouseup', _divUpH);
     };
 
+    /* ===== 판매자 · 출고창고 선택 목록 (2026-10-02, 셀러 Phase 2) =====
+       출고창고는 선택한 판매자의 창고만 고를 수 있다 — 판매자를 바꾸면 창고 목록을 다시 받고, 기존 선택이 목록에 없으면 비운다. */
+    const sellerOpts = reactive([]);
+    const warehouseOpts = reactive([]);
+    const fnLoadSellers = async () => {
+      try {
+        const res = await boApiSvc.slSeller.getPage({ pageNo: 1, pageSize: 500 }, '상품관리', '판매자목록조회');
+        sellerOpts.splice(0, sellerOpts.length, ...(res.data?.data?.pageList || []));
+      } catch (err) { console.error('[catch-info]', err); }
+    };
+    const fnLoadWarehouses = async (sellerId) => {
+      warehouseOpts.splice(0, warehouseOpts.length);
+      if (!sellerId) { return; }
+      try {
+        const res = await boApiSvc.slSellerWarehouse.getPage({ pageNo: 1, pageSize: 200, sellerId, useYn: 'Y' }, '상품관리', '판매자창고조회');
+        warehouseOpts.splice(0, warehouseOpts.length, ...(res.data?.data?.pageList || []));
+      } catch (err) { console.error('[catch-info]', err); }
+    };
+    watch(() => form.sellerId, async (n) => {
+      await fnLoadWarehouses(n);
+      if (form.warehouseId && !warehouseOpts.some(w => w.warehouseId === form.warehouseId)) { form.warehouseId = ''; }
+    });
+
     // ★ onMounted
     /* initPage — 화면 로드 시퀀스.
        코드 응답을 받은 뒤 초기 조회를 시작한다 — 코드 기반 select·라벨·기본값이
        빈 상태로 첫 조회가 나가는 것을 막는다(순서가 코드에 드러나도록 한 곳에 모았다). */
     const initPage = async () => {
       await fnLoadCodes();
+      await fnLoadSellers();
       await handleLoadData();
       await handleInitForm();
     };
@@ -2242,6 +2271,8 @@ window.PdProdDtl = {
       { key: '_categories',  label: '카테고리', colNm: 'pd_category_prod', type: 'slot', name: 'categories', required: true },
       { key: 'brandId',      label: '브랜드', type: 'slot', name: 'brand' },
       { key: 'vendorId',     label: '업체', type: 'slot', name: 'vendor' },
+      { key: 'sellerId',     label: '판매자', type: 'slot', name: 'seller' },
+      { key: 'warehouseId',  label: '출고창고', type: 'slot', name: 'warehouse' },
       { key: 'mdUserId',     label: '담당MD', type: 'slot', name: 'mdUser' },
       /* ── 가격 / 원가·마진·수수료 — 예전엔 별도 BoFormArea(columns.basePriceForm) 였다.
          가격 → 판매설정 → 배송 순으로 보이려면 한 폼 안에 있어야 순서를 잡을 수 있어 여기로 합쳤다. */
@@ -2371,6 +2402,7 @@ window.PdProdDtl = {
       cfIsNew, cfSaveDisabled, showTab, topTab, cfDtlMode, tabMode2, tabs, form, errors, codeGrpModal, openCodeGrpModal,
       tabPage, tabData, onTabPageChange, cfTabTotalPages, fnTabPageNos,
       uiState, mdModalOpen, cfMdUserListFiltered, cfMdSelectedNm, openMdModal, selectMdUser,
+      sellerOpts, warehouseOpts,
       optGroups, skus, cfTotalStock, generateSkus, moveSku,
       cfSkuFilter1Options, cfSkuFilter2Options, cfSkusFiltered, cfBaseSkuId, cfProdFlags, PROD_FLAG_OPTIONS,
       cfOptTypeAllCodes, cfOptTypeLevel1Codes, cfOptTypeCodes, getOptValCodes,
@@ -2539,6 +2571,20 @@ window.PdProdDtl = {
           <select v-else class="form-control" v-model="form.vendorId">
             <option value="">-- 선택 --</option>
             <option v-for="v in ([]||[])" :key="v.vendorId||v.id" :value="v.vendorId||v.id">{{ v.vendorNm||v.name }}</option>
+          </select>
+        </template>
+        <template #seller>
+          <div v-if="cfDtlMode" class="readonly-field-plain">{{ form.sellerNm || (form.sellerId ? form.sellerId : '플랫폼(직접판매)') }}</div>
+          <select v-else class="form-control" v-model="form.sellerId">
+            <option value="">-- 플랫폼(직접판매) --</option>
+            <option v-for="sl in sellerOpts" :key="sl.sellerId" :value="sl.sellerId">{{ sl.sellerNm }}</option>
+          </select>
+        </template>
+        <template #warehouse>
+          <div v-if="cfDtlMode" class="readonly-field-plain">{{ form.warehouseNm || '-' }}</div>
+          <select v-else class="form-control" v-model="form.warehouseId" :disabled="!form.sellerId">
+            <option value="">{{ form.sellerId ? '-- 선택 --' : '판매자를 먼저 선택하세요' }}</option>
+            <option v-for="w in warehouseOpts" :key="w.warehouseId" :value="w.warehouseId">{{ w.warehouseNm }}{{ w.isDefault === 'Y' ? ' (기본)' : '' }}</option>
           </select>
         </template>
         <template #mdUser>

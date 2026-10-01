@@ -309,6 +309,7 @@ window.SlSellerMng = {
         cellInnerStyle: (v) => detailPanel.selectedId === v ? 'color:#e8587a;font-weight:700;' : '' },
       { key: 'sellerTypeCd',    label: '유형', badge: (row) => fnTypeBadge(row.sellerTypeCd), fmt: (v) => fnTypeLabel(v) },
       { key: 'sellerStatusCd', label: '상태', badge: (row) => fnStatusBadge(row.sellerStatusCd), fmt: (v) => fnStatusLabel(v) },
+      { key: 'emailVerifiedYn', label: '이메일인증', align: 'center', fmt: (v) => v === 'Y' ? '인증' : '미인증' },
       { key: 'vendorNm',      label: '연결업체' },
       { key: 'settleBankNm',  label: '정산은행' },
       { key: 'regDate',       label: '등록일', sortKey: 'reg', fmt: (v) => coUtil.cofYmd(v) || '-' },

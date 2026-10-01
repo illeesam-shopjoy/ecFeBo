@@ -23,7 +23,9 @@ window.SlSellerDtl = {
       sellerId: null, sellerNm: '', sellerTypeCd: '', sellerStatusCd: 'PENDING',
       vendorId: null, vendorNm: '',
       settleBankNm: '', settleBankAccount: '', settleBankHolder: '',
+      emailVerifiedYn: '', emailVerifiedDate: '',   /* 판매자 신청 이메일 인증 (읽기 전용 — FO 신청 시 서버가 기록) */
     });
+    const refTableNm = ref('');                    // 신청서류 첨부의 sy_attach.ref_table_nm (백엔드 SyAttachRefTableConst 'SELLER' 항목에서 로드)
     const errors = reactive({});                   // 폼 검증 에러
 
     const schema = yup.object({                    // 폼 검증 스키마
@@ -150,6 +152,7 @@ window.SlSellerDtl = {
         const codeStore = window.sfGetBoCodeStore();
         /* 필요한 코드그룹만 지연 로딩 — 캐시에 있으면 API 가 나가지 않는다 */
         await codeStore.saLoadCodes(['SELLER_TYPE_CD', 'SELLER_STATUS_CD'], {compNm: 'SlSellerDtl'});
+        refTableNm.value = (await coUtil.cofGetAttachRefTableOptions()).find(o => o.key === 'SELLER')?.value || '';
         codes.seller_type_cd = codeStore.sgGetGrpCodes('SELLER_TYPE_CD');
         codes.seller_status_cd = codeStore.sgGetGrpCodes('SELLER_STATUS_CD');
       } catch (err) {
@@ -199,6 +202,9 @@ window.SlSellerDtl = {
       { key: 'settleBankNm',      label: '정산은행', type: 'text', placeholder: '은행명' },
       { key: 'settleBankAccount', label: '정산계좌번호', type: 'text', placeholder: '계좌번호' },
       { key: 'settleBankHolder',  label: '예금주', type: 'text', placeholder: '예금주명' },
+      // 4행: 승인 검토용 — 이메일 인증 여부 + FO 신청 시 올린 서류 (읽기 전용. 이 둘을 확인한 뒤 상태를 승인으로 바꾼다)
+      { key: 'emailVerifiedYn', label: '이메일인증', type: 'slot', name: 'emailVerified', visible: (f) => !!f.sellerId },
+      { key: '_docs',           label: '신청서류',   type: 'slot', name: 'docs', colSpan: 3, visible: (f) => !!f.sellerId },
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */
@@ -208,7 +214,7 @@ window.SlSellerDtl = {
       form, errors, // 상태 / 데이터
       uiState,
       handleBtnAction, fnCallbackModal,                                       // dispatch (모든 이벤트 / 액션 라우팅)
-      cfIsNew, cfDtlMode, // computed
+      cfIsNew, cfDtlMode, refTableNm, // computed
     };
   },
   template: /* html */`
@@ -224,6 +230,16 @@ window.SlSellerDtl = {
     @edit="handleBtnAction('form-edit')"
     @close="handleBtnAction('form-close')"
     @delete="handleBtnAction('form-delete')">
+    <template #emailVerified>
+      <div class="readonly-field-plain">
+        <span v-if="form.emailVerifiedYn === 'Y'" style="color:#15803d;font-weight:700;">인증 완료<template v-if="form.emailVerifiedDate"> · {{ String(form.emailVerifiedDate).slice(0, 16).replace('T', ' ') }}</template></span>
+        <span v-else style="color:#b45309;">미인증</span>
+      </div>
+    </template>
+    <template #docs>
+      <base-attach-grp :ref-table-nm="refTableNm" :ref-key-id="form.sellerId" :show-toast="showToast" :readonly="true"
+        grp-code="SELLER_DOC" grp-nm="판매자 신청서류" :max-count="5" :max-size-mb="10" allow-ext="jpg,jpeg,png,pdf,docx,xlsx,zip" />
+    </template>
   </bo-form-area>
   <!-- ===== □.□. 폼 영역 ================================================== -->
 </bo-container>
