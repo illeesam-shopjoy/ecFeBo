@@ -231,7 +231,7 @@ window.SyBbsDtl = {
 
     // 통합 폼 (cols=3)
     columns.baseForm = [
-      { key: '_siteNm',    label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value },
+      { key: '_siteNm',    label: '사이트명', type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */ },
       { key: 'bbsTitle',   label: '제목',     type: 'text', required: true, colSpan: 2,
         placeholder: '게시글 제목' },
       { key: '_bbmPick',   label: '게시판',   type: 'slot', name: 'bbmPick', colSpan: 3 },

@@ -212,7 +212,7 @@ window.SyTemplateDtl = {
     // 기본 폼
     const columns = {};
     columns.baseForm = [
-      { key: '_siteNm',        label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 3 },
+      { key: '_siteNm',        label: '사이트명', type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */, colSpan: 3 },
       { key: 'templateTypeCd', label: '템플릿유형', type: 'select', nullable: false, required: true,
         options: () => codes.template_types },
       { key: 'templateCode',   label: '템플릿코드', type: 'text', required: true,

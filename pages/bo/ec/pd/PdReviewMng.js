@@ -18,6 +18,7 @@ window.PdReviewMng = {
       REVIEW_STATUS: [], REVIEW_RATING: [],
     });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
+    const sellerOptions = reactive([]); // 판매자 선택 옵션 — 2026-10-03 BO 멀티테넌트: 리뷰 → 상품 → 판매자(서버 조인)
 
     /* 상품 리뷰 fnLoadCodes */
 
@@ -107,6 +108,7 @@ window.PdReviewMng = {
         console.error('[fnLoadCodes]', err);
       }
             siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));
+            sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));
     };
 
     // onMounted에서 API 로드
@@ -172,7 +174,7 @@ window.PdReviewMng = {
     const listGridPager        = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 5, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [5, 10, 20, 30, 50, 100, 200, 500], pageCond: {} });
     const selectedId   = ref(null);
 
-    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ reviewStatusCd: '', rating: '' });
+    const searchParam = reactive({ siteId: '', sellerId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ reviewStatusCd: '', rating: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -361,6 +363,7 @@ window.PdReviewMng = {
       { key: 'reviewStatusCd', label: '상태', type: 'select', options: () => codes.REVIEW_STATUS, nullLabel: '전체' },
       { key: 'rating', label: '평점', type: 'select', options: () => codes.REVIEW_RATING, nullLabel: '전체' },
           { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
+          window.boUtil.bofSellerSearchCol(() => sellerOptions),
     ];
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
@@ -390,6 +393,7 @@ window.PdReviewMng = {
         selectIntercept: { valueKey: 'reviewStatusCd', options: () => codes.REVIEW_STATUS,
           onChange: (row, newVal, $event) => handleSelectAction('reviews-rowStatusChange', { row, evt: $event }) } },
           { key: 'siteNm', label: '사이트' },
+          window.boUtil.bofSellerCol(),
       { type: 'actions', actions: [
         { label: '👁', cls: 'btn btn-xs', style: 'background:#fff;border:1px solid #d9d9d9;color:#555;font-size:12px;padding:2px 6px;', title: '상품 미리보기',
           onClick: (row) => handleSelectAction('reviews-rowPreview', row.prodId) },

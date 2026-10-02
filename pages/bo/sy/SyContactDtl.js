@@ -287,7 +287,7 @@ window.SyContactDtl = {
     // 사이트명 영역
     const columns = {};
     columns.siteForm = [
-      { key: '_siteNm', label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 4 },
+      { key: '_siteNm', label: '사이트명', type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */, colSpan: 4 },
     ];
     // content 탭 영역
     columns.contentForm = [

@@ -283,7 +283,7 @@ window.SyUserDtl = {
     columns.baseForm = [
       { type: 'group', label: '계정 · 연락처정보' },
       // 1행: 사이트명(2) + 로그인ID(1)
-      { key: '_siteNm',      label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 2 },
+      { key: '_siteNm',      label: '사이트명', type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */, colSpan: 2 },
       { key: 'loginId',      label: '로그인ID', type: 'text', required: true,
         placeholder: '로그인 아이디',
         readonly: !cfIsNew.value },

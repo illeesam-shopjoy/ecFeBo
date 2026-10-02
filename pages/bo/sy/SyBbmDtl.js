@@ -217,7 +217,7 @@ window.SyBbmDtl = {
     const columns = {};
     columns.baseForm = [
       { type: 'group', label: '게시판 설정' },
-      { key: '_siteNm',       label: '사이트명',    type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 3 },
+      { key: '_siteNm',       label: '사이트명',    type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */, colSpan: 3 },
       { key: 'bbmCode',       label: '게시판코드',  type: 'text', required: true, mono: true, placeholder: 'BOARD_CODE' },
       { key: 'bbmNm',         label: '게시판명',    type: 'text', required: true, placeholder: '게시판명' },
       { key: 'bbmTypeCd',     label: '유형',        type: 'select', options: () => codes.BBM_TYPE },

@@ -184,7 +184,7 @@ window.SyVendorDtl = {
     columns.baseForm = [
       { type: 'group', label: '업체정보' },
       // 1행: 사이트명(2) + 업체유형(1)
-      { key: '_siteNm',        label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 2 },
+      { key: '_siteNm',        label: '사이트명', type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */, colSpan: 2 },
       { key: 'vendorTypeCd',     label: '업체유형', type: 'select', nullable: false, required: true,
         options: () => codes.vendor_type_kr },
       // 2행: 업체명 / 사업자등록번호 / 대표자명

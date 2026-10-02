@@ -17,6 +17,7 @@ window.PdQnaMng = {
     const cfDtlMode = computed(() => uiState.dtlMode === 'view');
     const codes = reactive({ qna_statuses: [] });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
+    const sellerOptions = reactive([]); // 판매자 선택 옵션 — 2026-10-03 BO 멀티테넌트: Q&A → 상품 → 판매자(서버 조인)
     const SORT_MAP = { reg: { asc: 'regDate asc', desc: 'regDate desc' } };
     /* Dtl 인라인 패널용 폼 */
     const form = reactive({ qnaId: null, siteId: null, prodId: null, memberId: null,
@@ -147,7 +148,7 @@ window.PdQnaMng = {
     /* handleClose — 상세 패널 닫기 */
     const handleClose = () => { uiState.selectedId = null; uiState.isNew = false; uiState.dtlMode = 'view'; };
 
-    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ answYn: '', prodId: '' });
+    const searchParam = reactive({ siteId: '', sellerId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ answYn: '', prodId: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -226,6 +227,7 @@ window.PdQnaMng = {
         console.error('[fnLoadCodes]', err);
       }
             siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));
+            sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));
     };
 
     // ★ onMounted
@@ -252,6 +254,7 @@ window.PdQnaMng = {
       { key: 'searchValue', label: '키워드', type: 'text', placeholder: '제목 검색' },
       { key: 'answYn', label: '상태', type: 'select', options: () => codes.qna_statuses, nullLabel: '전체' },
           { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
+          window.boUtil.bofSellerSearchCol(() => sellerOptions),
     ];
 
     // 답변 폼
@@ -264,6 +267,7 @@ window.PdQnaMng = {
     // 기본 그리드
     columns.baseGrid = [
       { key: 'siteNm',   label: '사이트' },
+      window.boUtil.bofSellerCol(),
       { key: 'prodId',   label: '상품명', fmt: (v) => getProdNm(v) },
       { key: 'qnaTitle', label: '제목', link: true },
       { key: 'memberId', label: '작성자', fmt: (v) => getMemNm(v) },

@@ -204,7 +204,7 @@ window.SyAlarmDtl = {
     // 기본 폼
     const columns = {};
     columns.baseForm = [
-      { key: '_siteNm',       label: '사이트명', type: 'readonly', fmt: () => cfSiteNm.value, colSpan: 3 },
+      { key: '_siteNm',       label: '사이트명', type: 'readonly', fmt: (v, f) => (f && (f.regSiteNm || f.siteNm)) || boUtil.bofSiteNmOf(f && (f.regSiteId || f.siteId)) || cfSiteNm.value /* 2026-10-03 BO 멀티테넌트: 행의 등록 사이트, 신규는 현재 선택 사이트 */, colSpan: 3 },
       { key: 'alarmTitle',    label: '제목', type: 'text', required: true, placeholder: '알림 제목', colSpan: 2 },
       { key: 'alarmTypeCd',   label: '유형', type: 'select', options: () => codes.alarm_types },
       { key: 'alarmStatusCd', label: '상태', type: 'select', options: () => codes.alarm_statuses },
