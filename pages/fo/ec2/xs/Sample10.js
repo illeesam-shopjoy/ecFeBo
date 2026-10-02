@@ -1,6 +1,6 @@
-/* ShopJoy - Zample21 */
-window.XsSample21 = {
-  name: 'XsSample21',
+/* ShopJoy - Zample10 */
+window.XsSample10 = {
+  name: 'XsSample10',
   setup(props) {
 
     /* ##### [01] 초기 변수 정의 #################################################### */
@@ -13,7 +13,7 @@ window.XsSample21 = {
 
     /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleBtnAction = (cmd, param = {}) => {
-      console.log(' ■■ XsSample21.js : handleBtnAction -> ', cmd, param);
+      console.log(' ■■ XsSample10.js : handleBtnAction -> ', cmd, param);
       // 홈으로 이동
       if (cmd === 'page-goHome') {
         return props && props.navigate && props.navigate('home');
@@ -24,7 +24,7 @@ window.XsSample21 = {
 
     /* handleSelectAction — 행/선택 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
     const handleSelectAction = (cmd, param = {}) => {
-      console.log(' ■■ XsSample21.js : handleSelectAction -> ', cmd, param);
+      console.log(' ■■ XsSample10.js : handleSelectAction -> ', cmd, param);
       console.warn('[handleSelectAction] unknown cmd:', cmd);
     };
 
@@ -39,7 +39,7 @@ window.XsSample21 = {
   template: `
 <fo-page bare>
   <div style="padding:40px;">
-    pages/fo/xs/Sample21.js
+    pages/fo/ec2/xs/Sample10.js
   </div>
 </fo-page>
 `,

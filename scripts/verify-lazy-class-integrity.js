@@ -10,6 +10,10 @@
  *        여기서 실패하면(exit 1) 배포 스크립트/CI 가 그 자리에서 멈추도록 연결해두면,
  *        "압축 옵션 잘못 켰는지 사람이 기억해야 하는" 리스크가 사라진다.
  *
+ * 멀티테넌트(2026-10-02): FO 맵은 모듈(pages/fo/ec1, ec2 ...)별로 따로 있다 — 런타임은 한 모듈만
+ *        쓰지만, 여기서는 FO_LAZY_CLASS_FILES_BY_MODULE 의 모든 모듈을 하나씩 골라가며 전부 검증한다
+ *        (FO_SITE_NO 별 Home/Prod 동적 항목도 모듈마다 포함).
+ *
  * 사용법: node scripts/verify-lazy-class-integrity.js [--dir <검사할 루트 디렉토리, 기본=프로젝트 루트>]
  */
 const fs = require('fs');
@@ -87,10 +91,25 @@ function verifyMap(stepLabel, label, map, regToGlobal) {
 console.log(`▶ 시작 : lazy 클래스 맵이 실제 파일과 일치하는지 검증 (대상: ${TARGET_DIR})`);
 global.window = { FO_SITE_NO: process.env.FO_SITE_NO || '01', BO_SITE_NO: process.env.BO_SITE_NO || '01' };
 require(path.join(ROOT, 'lib/app/boAppLazyClasses.js'));
-require(path.join(ROOT, 'lib/app/foAppLazyClasses.js'));
+const FO_MAP_FILE = path.join(ROOT, 'lib/app/foAppLazyClasses.js');
+require(FO_MAP_FILE);
 
 const boFail = verifyMap('1', 'BO_LAZY_CLASS_FILES', global.window.BO_LAZY_CLASS_FILES, null);
-const foFail = verifyMap('2', 'FO_LAZY_CLASS_FILES', global.window.FO_LAZY_CLASS_FILES, global.window.FO_REG_TO_GLOBAL);
+
+// FO 는 테넌트 모듈별로 — 모듈을 바꿔가며 맵 파일을 다시 읽어(require 캐시 삭제) 그 모듈의
+// FO_LAZY_CLASS_FILES(동적 Home/Prod 항목 포함)를 검증한다.
+const foModules = Object.keys(global.window.FO_LAZY_CLASS_FILES_BY_MODULE || {});
+let foFail = 0;
+if (!foModules.length) {
+  console.log('\n[2] FO_LAZY_CLASS_FILES 검증 — ⚠️  FO_LAZY_CLASS_FILES_BY_MODULE 이 비어 있음(npm run gen-fo-lazy 를 다시 돌릴 것)');
+  foFail = 1;
+}
+foModules.forEach((mod, i) => {
+  global.window.FO_TENANT_MODULE = mod;
+  delete require.cache[require.resolve(FO_MAP_FILE)];
+  require(FO_MAP_FILE);
+  foFail += verifyMap(`2-${i + 1}`, `FO_LAZY_CLASS_FILES (모듈 ${mod})`, global.window.FO_LAZY_CLASS_FILES, global.window.FO_REG_TO_GLOBAL);
+});
 
 const total = boFail + foFail;
 console.log(`\n[종합] 총 ${total}개 불일치`);

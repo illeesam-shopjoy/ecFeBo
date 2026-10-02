@@ -58,6 +58,7 @@
   <script src="lib/utils/foApiAxios.js"></script>
   <script src="lib/utils/foUtil.js"></script>
   <script src="lib/env/envFoConsts.js"></script>
+  <script src="lib/app/foAppTenant.js"></script>
   <script src="lib/utils/coExtSdk.js"></script>
   <script src="lib/utils/coAuth.js"></script>
 
@@ -88,7 +89,12 @@
   <script src="components/comp/FoAreaComp.js"></script>
   <script src="components/comp/CoWidgetComp.js"></script>
   <script src="components/comp/BoComp.js"></script>
-  <script src="pages/fo/Login.js"></script>
+  <!-- 멀티테넌트 — 화면 소스는 모듈 폴더(pages/fo/<모듈>/)에서 가져온다(lib/app/foAppTenant.js 가 결정) -->
+  <script>
+    ['Login.js'].forEach(function (f) {
+      document.write('<script src="' + window.FO_TENANT_PAGES_DIR + f + '"><\/script>');
+    });
+  </script>
 
   <!-- ■ B3.4: 독립 모듈 공용 셸 (theme/auth/사이드바/토스트/컨펌) ■ -->
   <script src="lib/app/foModuleShell.js"></script>

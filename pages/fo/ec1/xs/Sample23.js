@@ -39,7 +39,7 @@ window.XsSample23 = {
   template: `
 <fo-page bare>
   <div style="padding:40px;">
-    pages/fo/xs/Sample23.js
+    pages/fo/ec1/xs/Sample23.js
   </div>
 </fo-page>
 `,

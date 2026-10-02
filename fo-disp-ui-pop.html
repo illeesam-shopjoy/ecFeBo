@@ -72,6 +72,9 @@
   <script src="lib/utils/coUtil.js"></script>
   <script src="lib/utils/foApiAxios.js"></script>
   <script src="lib/utils/foUtil.js"></script>
+  <!-- 배포 프로파일(API 호스트·siteId·tenantModule) + 멀티테넌트 모듈 결정 — 아래 pages/fo 스크립트보다 먼저 -->
+  <script src="lib/env/envFoConsts.js"></script>
+  <script src="lib/app/foAppTenant.js"></script>
   <!-- 코드그룹 지연 로딩(coApiSvc.syCode.getGrpsCodes → foCodeStore.saLoadCodes) -->
   <script src="lib/services/coApiSvc.js"></script>
   <script src="lib/stores/fo/foCodeStore.js"></script>
@@ -87,16 +90,13 @@
   <script src="components/disp/DispX03Panel.js"></script>
   <script src="components/disp/DispX04Widget.js"></script>
 
-  <!-- ■ B4.1: Display UI Pages (가나다순) ■ -->
-  <script src="pages/fo/xd/DispUi01.js"></script>
-  <script src="pages/fo/xd/DispUi02.js"></script>
-  <script src="pages/fo/xd/DispUi03.js"></script>
-  <script src="pages/fo/xd/DispUi04.js"></script>
-  <script src="pages/fo/xd/DispUi05.js"></script>
-  <script src="pages/fo/xd/DispUi06.js"></script>
-
-  <!-- ■ B4.2: Display UI Page ■ -->
-  <script src="pages/fo/xd/DispUiPage.js"></script>
+  <!-- ■ B4.1: Display UI Pages (가나다순) + B4.2: Display UI Page ■ -->
+  <!-- 멀티테넌트 — 화면 소스는 모듈 폴더(pages/fo/<모듈>/)에서 가져온다(lib/app/foAppTenant.js 가 결정) -->
+  <script>
+    ['xd/DispUi01.js', 'xd/DispUi02.js', 'xd/DispUi03.js', 'xd/DispUi04.js', 'xd/DispUi05.js', 'xd/DispUi06.js', 'xd/DispUiPage.js'].forEach(function (f) {
+      document.write('<script src="' + window.FO_TENANT_PAGES_DIR + f + '"><\/script>');
+    });
+  </script>
 
   <!-- ■ B99: Main App Bootstrap ■ -->
   <script>

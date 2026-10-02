@@ -24,6 +24,10 @@
  *    자동으로 지워도 되는 목록이 아니다. 사람이 봐서 (a) 다른 독립 팝업 html 에서
  *    참조되는지 (b) 의도적으로 비활성화된 화면인지 (c) 진짜 죽은 코드인지 판단할 것.
  *
+ * 멀티테넌트(2026-10-02): FO 화면은 pages/fo/<모듈>/ (ec1, ec2 ...) 로 통째로 독립이고 같은
+ * 클래스명이 모듈마다 따로 있다 — 그래서 FO 쪽 ①③④ 는 "모듈별로 따로" 돈다(모듈끼리 섞어서
+ * 보면 ec1/ec2 사본이 전부 ③ 중복정의로 오탐된다). 런타임에는 한 모듈 파일만 로드된다.
+ *
  * 브라우저 런타임(부팅 시 자동 체크)으로는 ①③④를 할 수 없다 — 브라우저 JS 는 디스크에
  * 뭐가 있는지 자체를 모르므로 파일시스템 접근 가능한 Node 스크립트로만 가능하다.
  *
@@ -101,6 +105,24 @@ function scanTemplateTags(absFilePath) {
   return tags.map(kebabToPascal);
 }
 
+/* listFoModules — pages/fo 바로 아래 폴더 이름 = FO 테넌트 모듈 목록(이름순) */
+function listFoModules() {
+  const abs = path.join(ROOT, 'pages/fo');
+  if (!fs.existsSync(abs)) return [];
+  return fs.readdirSync(abs, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+}
+
+/* loadFoLazyMap — FO 맵 파일을 지정 모듈 기준으로 다시 읽어 그 모듈의 FO_LAZY_CLASS_FILES 를 반환.
+   맵 파일은 로드 시점의 window.FO_TENANT_MODULE 로 한 모듈만 고르므로, 모듈을 바꿀 때마다
+   require 캐시를 지우고 다시 읽어야 한다. */
+function loadFoLazyMap(mod) {
+  const abs = path.join(ROOT, 'lib/app/foAppLazyClasses.js');
+  global.window.FO_TENANT_MODULE = mod;
+  delete require.cache[require.resolve(abs)];
+  require(abs);
+  return global.window.FO_LAZY_CLASS_FILES || {};
+}
+
 /* loadLazyMapValues — {className: filePath} 형태의 window.XXX_LAZY_CLASS_FILES 값을 Set 으로 */
 function loadLazyMapValues(mapFile, globalKey) {
   global.window = global.window || {};
@@ -124,13 +146,14 @@ function eagerScriptSrcs(htmlFile, prefix) {
 /* ============================================================
  * ① 등록 누락(orphan)
  * ============================================================ */
-function checkOrphans(stepLabel, label, { pagesDirs, htmlFile, mapFile, globalKey }) {
+function checkOrphans(stepLabel, label, { pagesDirs, htmlFile, mapFile, globalKey, lazyMap }) {
   console.log(`\n[${stepLabel}] ${label} — 화면 파일을 만들어놓고 어디에도 등록 안 한 게 있는지 훑는다`);
   const onDisk = pagesDirs.flatMap((d) => walkJsFiles(d));
   console.log(`  ㄴ 디스크에서 .js 파일 목록 수집: ${onDisk.length}개`);
   const registered = new Set([
     ...pagesDirs.flatMap((d) => eagerScriptSrcs(htmlFile, d + '/')),
-    ...loadLazyMapValues(mapFile, globalKey),
+    // lazyMap 을 직접 넘기면(FO 모듈별 점검) 그걸 쓰고, 아니면 맵 파일을 읽는다(BO)
+    ...(lazyMap ? Object.values(lazyMap) : loadLazyMapValues(mapFile, globalKey)),
   ]);
   console.log(`  ㄴ eager <script> 태그 + lazy 맵 합쳐서 "등록된 파일" 집합 계산: ${registered.size}개`);
   const orphans = onDisk.filter((f) => !registered.has(f));
@@ -274,35 +297,46 @@ const boOrphans = checkOrphans('1-1', 'BO (pages/bo + pages/co)', {
   mapFile: 'lib/app/boAppLazyClasses.js',
   globalKey: 'BO_LAZY_CLASS_FILES',
 });
-const foOrphans = checkOrphans('1-2', 'FO (pages/fo)', {
-  pagesDirs: ['pages/fo'],
+// FO 는 테넌트 모듈(pages/fo/<모듈>)별로 따로 — 모듈마다 그 모듈의 맵만 놓고 점검한다
+const foModules = listFoModules();
+const foMaps = {}; // { [모듈]: 그 모듈의 FO_LAZY_CLASS_FILES }
+foModules.forEach((mod) => { foMaps[mod] = { ...loadFoLazyMap(mod) }; });
+const foStray = fs.existsSync(path.join(ROOT, 'pages/fo'))
+  ? fs.readdirSync(path.join(ROOT, 'pages/fo')).filter((n) => n.endsWith('.js')).map((n) => 'pages/fo/' + n)
+  : [];
+
+const foOrphans = foModules.flatMap((mod) => checkOrphans(`1-2(${mod})`, `FO (pages/fo/${mod})`, {
+  pagesDirs: [`pages/fo/${mod}`],
   htmlFile: 'index.html',
-  mapFile: 'lib/app/foAppLazyClasses.js',
-  globalKey: 'FO_LAZY_CLASS_FILES',
-});
+  lazyMap: foMaps[mod],
+}));
+if (foStray.length) {
+  // 모듈 폴더 밖(pages/fo 바로 아래)에 놓인 파일은 어느 모듈 맵에도 안 들어가므로 등록 누락으로 친다
+  console.log(`\n[1-2] FO (pages/fo) — ⚠️  모듈 폴더 밖에 놓인 파일 ${foStray.length}개(pages/fo/<모듈>/ 로 옮길 것)`);
+  foStray.forEach((f) => console.log('   -', f));
+  foOrphans.push(...foStray);
+}
 
 // 2~4단계는 1단계에서 이미 메모리에 로드된 맵을 재사용(다시 안 읽음)
 require(path.join(ROOT, 'lib/app/boAppLazyClasses.js'));
-require(path.join(ROOT, 'lib/app/foAppLazyClasses.js'));
 const BO_LAZY_CLASS_FILES = global.window.BO_LAZY_CLASS_FILES || {};
-const FO_LAZY_CLASS_FILES = global.window.FO_LAZY_CLASS_FILES || {};
 const BO_APP_COMP_PAGE = global.window.BO_APP_COMP_PAGE || {};
 const FO_PAGE_TO_CLASS = global.window.FO_PAGE_TO_CLASS || {};
 
 const boOverlap = checkEagerLazyOverlap('2-1', 'BO', { compFile: 'lib/app/boAppComp.js', lazyMap: BO_LAZY_CLASS_FILES });
-const foOverlap = checkEagerLazyOverlap('2-2', 'FO', { compFile: 'lib/app/foAppComp.js', lazyMap: FO_LAZY_CLASS_FILES });
+const foOverlap = foModules.flatMap((mod) => checkEagerLazyOverlap(`2-2(${mod})`, `FO (${mod})`, { compFile: 'lib/app/foAppComp.js', lazyMap: foMaps[mod] }));
 
 const boDups = checkDuplicateClassNames('3-1', 'BO (pages/bo + pages/co)', ['pages/bo', 'pages/co']);
-const foDups = checkDuplicateClassNames('3-2', 'FO (pages/fo)', ['pages/fo']);
+const foDups = foModules.flatMap((mod) => checkDuplicateClassNames(`3-2(${mod})`, `FO (pages/fo/${mod})`, [`pages/fo/${mod}`]));
 
 const boRoots = Object.values(BO_APP_COMP_PAGE).map(kebabToPascal);
 const boUnreachable = checkReachability('4-1', 'BO', {
   pagesDirs: ['pages/bo', 'pages/co'], htmlFile: 'bo.html', lazyMap: BO_LAZY_CLASS_FILES, rootClasses: boRoots,
 });
 const foRoots = Object.values(FO_PAGE_TO_CLASS);
-const foUnreachable = checkReachability('4-2', 'FO', {
-  pagesDirs: ['pages/fo'], htmlFile: 'index.html', lazyMap: FO_LAZY_CLASS_FILES, rootClasses: foRoots,
-});
+const foUnreachable = foModules.flatMap((mod) => checkReachability(`4-2(${mod})`, `FO (${mod})`, {
+  pagesDirs: [`pages/fo/${mod}`], htmlFile: 'index.html', lazyMap: foMaps[mod], rootClasses: foRoots,
+}));
 
 const total = boOrphans.length + foOrphans.length + boOverlap.length + foOverlap.length + boDups.length + foDups.length;
 console.log(`\n[종합] 1~3단계 치명적 문제 ${total}개 / 4단계 확인 필요(오탐 가능) ${boUnreachable.length + foUnreachable.length}개`);
