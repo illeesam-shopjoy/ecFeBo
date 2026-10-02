@@ -21,6 +21,7 @@ window.PdRestockNotiMng = {
       SEND_YN: [],
     });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
+    const sellerOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 판매자 선택 옵션 (상품 join 으로 서버가 sellerNm 반환)
 
     /* ===== 검색조건 ===== */
 
@@ -71,7 +72,7 @@ window.PdRestockNotiMng = {
       }
     };
 
-    const searchParam = reactive({ prodId: '', notiYn: '' });
+    const searchParam = reactive({ siteId: '', sellerId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ prodId: '', notiYn: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -147,6 +148,7 @@ window.PdRestockNotiMng = {
         console.error('[fnLoadCodes]', err);
       }
             siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));
+      sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     // ★ onMounted
@@ -171,7 +173,8 @@ window.PdRestockNotiMng = {
     columns.baseSearch = [
       { key: 'prodId', label: '상품ID', type: 'text', placeholder: '상품ID 검색' },
       { key: 'notiYn', label: '알림발송', type: 'select', options: () => codes.SEND_YN, nullLabel: '전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
+      window.boUtil.bofSellerSearchCol(() => sellerOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     // 기본 그리드
@@ -184,6 +187,7 @@ window.PdRestockNotiMng = {
       { key: 'notiDate', label: '발송일시', style: 'width:140px', cellStyle: 'color:#888', fmt: (v) => v || '-' },
       { key: 'regDate',  label: '신청일',  style: 'width:140px',  fmt: (v) => coUtil.cofYmd(v) || '-' },
           { key: 'siteNm', label: '사이트' },
+      window.boUtil.bofSellerCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     /* excelModal — 엑셀 다운로드 (공용 모달) */

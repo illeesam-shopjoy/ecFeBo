@@ -101,8 +101,9 @@ window.OdOrderItemMng = {
     const uiState = reactive({ loading: false });
     const codes = reactive({ order_item_statuses: [], od_date_types: [], couriers: [], claim_types: [], claim_statuses: [] });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
+    const sellerOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 판매자 선택 옵션 (상품 join 으로 서버가 sellerId/sellerNm 반환)
 
-    const searchParam = reactive({
+    const searchParam = reactive({ siteId: '', sellerId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */
       orderId: '', memberId: '', memberNm: '',
       vendorId: '', vendorNm: '', brandId: '', brandNm: '',
       mdUserId: '', mdUserNm: '', dlivCourierCd: '',
@@ -368,6 +369,9 @@ window.OdOrderItemMng = {
         ...(searchParam.dateRangeType     && { dateRangeType:     searchParam.dateRangeType }),
         ...(searchParam.dateRangeStart    && { dateRangeStart:    searchParam.dateRangeStart }),
         ...(searchParam.dateRangeEnd      && { dateRangeEnd:      searchParam.dateRangeEnd }),
+        // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 — 명시 복사 방식이라 키를 안 넣으면 조건이 서버에 전달되지 않는다
+        ...(searchParam.siteId            && { siteId:            searchParam.siteId }),
+        ...(searchParam.sellerId          && { sellerId:          searchParam.sellerId }),
       };
       if (params.searchValue && !params.searchType) { params.searchType = 'prodNm,brandNm'; }
       return params;
@@ -402,6 +406,7 @@ window.OdOrderItemMng = {
         codes.claim_statuses      = codeStore.sgGetGrpCodes('CLAIM_ITEM_STATUS_CD');
       } catch (_) {}
             siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));
+      sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     const initPage = async () => {
@@ -645,6 +650,7 @@ window.OdOrderItemMng = {
       /* ── Fixed action ────────────────────────────────────────────────── */
       { key: '_actions', label: '작업', width: 56, align: 'center', slot: true, pin: 'right' },
           { key: 'siteNm', label: '사이트' },
+      window.boUtil.bofSellerCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseSearch = [
@@ -677,7 +683,8 @@ window.OdOrderItemMng = {
         typeOptions: () => codes.od_date_types, dateWidth: '136px',
         rangeOptions: () => window.boUtil.bofDateRangeOptions,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
+      window.boUtil.bofSellerSearchCol(() => sellerOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     /* ##### [07] return ########################################################## */

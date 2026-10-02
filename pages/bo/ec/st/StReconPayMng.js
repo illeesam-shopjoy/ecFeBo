@@ -62,6 +62,8 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
         codes.payment_statuses = codeStore.sgGetGrpCodes('PAY_STATUS');
         codes.recon_results = codeStore.sgGetGrpCodes('RECON_RESULT_PAY');
         codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));       // 2026-10-03 BO 멀티테넌트
+        sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -76,7 +78,9 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
     const rows = reactive([]);
     const excelModal = reactive({ show: false });   // 엑셀 다운로드 모달 표시 여부
 
-    const searchParam = reactive({ diff: '' });
+    const siteOptions = reactive([]);     // 2026-10-03 BO 멀티테넌트: 사이트/판매자 검색조건 옵션
+    const sellerOptions = reactive([]);
+    const searchParam = reactive({ diff: '', siteId: '', sellerId: '' });   // 2026-10-03 BO 멀티테넌트: siteId/sellerId 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -163,12 +167,16 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
         rangeFirst: true, dateWidth: '140px', sepStyle: 'line-height:32px',
         onRangeChange: () => handleDateRangeChange() },
       { key: 'diff', label: '대사결과', type: 'select', options: () => codes.recon_results, nullLabel: '대사결과 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건
+      window.boUtil.bofSellerSearchCol(() => sellerOptions),
     ];
 
     // 기본 그리드
     columns.baseGrid = [
       { key: 'orderId',    label: '주문ID' },
       { key: 'txDate',     label: '거래일',  fmt: (v) => coUtil.cofYmd(v) || '-' },
+      window.boUtil.bofSellerCol(),                          // 2026-10-03 BO 멀티테넌트: 판매자/사이트 컬럼
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),
       { key: 'payMethod',  label: '결제수단', badge: (row) => fnPayBadge(row.payMethod) },
       { key: 'payAmt',     label: '주문금액', fmt: fmtW },
       { key: 'pgAmt',      label: 'PG정산액', fmt: fmtW },

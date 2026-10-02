@@ -16,8 +16,9 @@ window.MdCbPatternMng = {
     const codes   = reactive({ pattern_status: [] });
     const patterns = reactive([]);
 
-    const searchParam = reactive({ searchValue: '', patternStatusCd: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchValue: '', patternStatusCd: '' });
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 20, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [20, 50, 100], pageCond: {} });
 
@@ -92,6 +93,7 @@ window.MdCbPatternMng = {
       const codeStore = window.sfGetBoCodeStore();
       await codeStore.saLoadCodes(['CB_PATTERN_STATUS_CD'], { compNm: 'MdCbPatternMng' });
       codes.pattern_status = codeStore.sgGetGrpCodes('CB_PATTERN_STATUS_CD');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     const fnStatusBadge = (cd) => cd === 'PUBLISHED' ? 'badge-green' : (cd === 'PRIVATE' ? 'badge-gray' : 'badge-blue');
@@ -109,6 +111,7 @@ window.MdCbPatternMng = {
     columns.baseSearch = [
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '도안명/설명/작성회원 검색' },
       { key: 'patternStatusCd', type: 'select', label: '상태', options: () => codes.pattern_status, nullLabel: '상태 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseGrid = [
@@ -118,6 +121,7 @@ window.MdCbPatternMng = {
       { key: 'maxStitchCount',  label: '코수', align: 'center', fmt: v => v != null ? v + '코' : '-' },
       { key: 'patternStatusCd', label: '상태', align: 'center', badge: (r) => fnStatusBadge(r.patternStatusCd), fmt: (v, r) => r.patternStatusCdNm || v || '-' },
       { key: 'regDate',         label: '등록일', align: 'center', fmt: v => coUtil.cofYmd(v) || '-' },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
       { type: 'actions', actions: [
         { label: '열기', cls: 'btn btn_row_open', onClick: (row) => handleSelectAction('pattern-open', row.patternId) },
         { label: '삭제', cls: 'btn btn_row_delete',    onClick: (row) => handleSelectAction('pattern-delete', row) },

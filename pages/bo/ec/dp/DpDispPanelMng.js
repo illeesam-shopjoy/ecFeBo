@@ -21,7 +21,7 @@ window.DpDispPanelMng = {
     const codes = reactive({ panel_types: [], disp_statuses: [], use_yn: [{ value: 'Y', label: '사용' }, { value: 'N', label: '미사용' }] });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
 
-    const searchParam = reactive({ searchValue: '', areaId: '', panelTypeCd: '', dispPanelStatusCd: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchValue: '', areaId: '', panelTypeCd: '', dispPanelStatusCd: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -216,7 +216,7 @@ window.DpDispPanelMng = {
         options: () => areas.map(a => ({ value: a.areaId, label: fnAreaNm(a.areaId) })), nullLabel: '영역 전체' },
       { key: 'panelTypeCd',       label: '표시유형', type: 'select', options: () => codes.panel_types,   nullLabel: '유형 전체' },
       { key: 'dispPanelStatusCd', label: '상태',     type: 'select', options: () => codes.disp_statuses, nullLabel: '상태 전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     columns.baseGrid = [

@@ -341,8 +341,6 @@ window.SyMenuMng = {
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
-
     /* parentNm — 상위 메뉴명 */
     const parentNm = (parentId) => {
       if (!parentId) { return ''; }
@@ -377,8 +375,7 @@ window.SyMenuMng = {
       { key: 'sortOrd',    label: '순서',     cls: 'col-ord',  edit: 'number' },
       { key: 'useYn',      label: '사용여부', cls: 'col-use',  edit: 'select', options: () => codes.use_yn },
       { key: 'menuRemark', label: '비고',     edit: 'text' },
-      { key: 'siteNm',     label: '사이트명', style: 'width:80px;', align: 'center',
-        cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;', align: 'center', cellStyle: 'font-size:11px;color:#2563eb;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

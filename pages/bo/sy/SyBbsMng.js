@@ -22,7 +22,8 @@ window.SyBbsMng = {
     const SORT_MAP = { nm: { asc: 'authorNm asc', desc: 'authorNm desc' }, reg: { asc: 'regDate asc', desc: 'regDate desc' } };
 
     /* ===== 검색조건 ===== */
-    const searchParam = reactive({ searchType: '', searchValue: '', bbmId: '', status: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', bbmId: '', status: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -274,6 +275,7 @@ window.SyBbsMng = {
       codes.bbs_status = codeStore.sgGetGrpCodes('BBS_STATUS');
       codes.bbs_post_statuses = codeStore.sgGetGrpCodes('BBS_POST_STATUS');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted — 진입 시 코드 로드 + 목록 초기 조회
@@ -309,7 +311,6 @@ window.SyBbsMng = {
     /* fnRowStyle — 행 스타일 (선택 행 강조) */
     const fnRowStyle = (b) => detailModal.dtlId === b.bbsId ? 'background:#fff8f9;' : '';
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfBbmOptions = computed(() => bbms.map(b => ({ value: b.bbmId, label: b.bbmNm })));
     const cfDetailEditId = computed(() => detailModal.dtlId === '__new__' ? null : detailModal.dtlId);
 
@@ -331,6 +332,7 @@ window.SyBbsMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 기본 그리드
@@ -342,7 +344,7 @@ window.SyBbsMng = {
       { key: 'viewCount',    label: '조회수', align: 'center' },
       { key: 'commentCount', label: '댓글', align: 'center' },
       { key: 'bbsStatusCd',  label: '상태', badge: (row) => fnStatusBadge(row.bbsStatusCd) },
-      { key: 'siteNm',       label: '사이트명', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
       { key: 'regDate',      label: '등록일', sortKey: 'reg', fmt: (v) => coUtil.cofYmd(v) },
     ];
 

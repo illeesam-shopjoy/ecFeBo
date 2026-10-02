@@ -147,7 +147,7 @@ window.PdQnaMng = {
     /* handleClose — 상세 패널 닫기 */
     const handleClose = () => { uiState.selectedId = null; uiState.isNew = false; uiState.dtlMode = 'view'; };
 
-    const searchParam = reactive({ answYn: '', prodId: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ answYn: '', prodId: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -251,7 +251,7 @@ window.PdQnaMng = {
     columns.baseSearch = [
       { key: 'searchValue', label: '키워드', type: 'text', placeholder: '제목 검색' },
       { key: 'answYn', label: '상태', type: 'select', options: () => codes.qna_statuses, nullLabel: '전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     // 답변 폼

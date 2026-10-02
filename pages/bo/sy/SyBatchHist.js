@@ -247,6 +247,7 @@ window.SyBatchHist = {
       { key: 'durationMs', label: '소요시간', style: 'width:66px;text-align:center;', align: 'center', cellStyle: 'color:#666', fmt: (v) => fnFmtDuration(v) },
       { key: 'runTypeCd',  label: '실행구분', style: 'width:72px;text-align:center;', align: 'center', fmt: (v) => fnRunTypeLabel(v), badge: (row) => _RUN_TYPE_BADGE[row.runTypeCd] || 'badge-gray' },
       { key: 'runStatusCd',  label: '결과',    style: 'width:66px;text-align:center;', align: 'center', badge: (row) => fnRunBadge(row.runStatusCd) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { key: 'message',    label: '메시지',  style: 'width:auto;', cellStyle: (v, row) => 'font-size:11px;max-width:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;' + (row.runStatusCd === 'FAILED' ? 'color:#dc2626' : 'color:#555') },
     ];
 

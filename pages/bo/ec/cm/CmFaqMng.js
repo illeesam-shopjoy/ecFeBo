@@ -264,7 +264,6 @@ window.CmFaqMng = {
     /* fnRowStyle */
     const fnRowStyle = (f) => detailModal.dtlId === f.faqId ? 'background:#fff8f9;' : '';
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfDetailEditId = computed(() => detailModal.dtlId === '__new__' ? null : detailModal.dtlId);
     const cfIsViewMode = computed(() => detailModal.dtlMode === 'view' && detailModal.dtlId !== '__new__');
     const cfDetailKey = computed(() => `${detailModal.dtlId}_${detailModal.dtlMode}_${detailModal.resetSeq}`);
@@ -293,7 +292,7 @@ window.CmFaqMng = {
       { key: 'sortOrd',     label: '정렬순서', align: 'center' },
       { key: 'viewCount',   label: '조회수', align: 'center', fmt: (v) => v || 0 },
       { key: 'useYn',       label: '노출여부', badge: (row) => fnYnBadge(row.useYn), fmt: (v) => v === 'Y' ? '노출' : '숨김' },
-      { key: 'siteNm',      label: '사이트명', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트 (검색조건은 site_id 백엔드 반영 후)
       { key: 'regDate',     label: '등록일',  fmt: (v) => coUtil.cofYmd(v) || '-' },
     ];
 

@@ -476,6 +476,7 @@ window.CmBlogMng = {
       { key: 'isNotice',   label: '공지',     style: 'width:70px;', align: 'center', badge: row => row.isNotice==='Y' ? 'badge-orange' : 'badge-gray' },
       { key: 'useYn',      label: '공개',     style: 'width:70px;', align: 'center', badge: row => fnYnBadge(row.useYn), fmt: v => v==='Y' ? '공개' : '비공개' },
       { key: 'regDate',    label: '등록일',   style: 'width:140px;', sortKey: 'reg',  fmt: (v) => coUtil.cofYmd(v) || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:110px;' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       /* type:'actions' — 관리 버튼모음도 별도 배열로 분리하지 않고 baseGrid 항목 하나로 선언(#row-actions 슬롯 대체, 2026-08-25) */
       { type: 'actions', actions: [
         { label: '수정', cls: 'btn btn_row_edit btn-sm', onClick: (row) => handleGridCellAction('blogs-cellClick', 'btn_row_edit', row) },

@@ -25,14 +25,13 @@ window.SyAttachMng = {
       pageNums: [], pageSizes: [10, 20, 30, 50, 100, 200, 500],
     });
 
-    const searchParam = reactive({ refTableNm: '', refId: '', searchType: '', searchValue: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ refTableNm: '', refId: '', searchType: '', searchValue: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값 (initPage 끝에서 스냅샷) */
     const searchParamInit = {};
 
     /* 하단 상세 — 항상 표시, 미선택 시 안내 메시지(SyAttachDtl 내부에서 처리) */
     const detailPanel = reactive({ selectedId: null, reloadTrigger: 0 });
-
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
 
     /* ##### [02] 액션 모음 (dispatch) ############################################## */
 
@@ -130,6 +129,7 @@ window.SyAttachMng = {
       /* 필요한 코드그룹만 지연 로딩 — 캐시에 있으면 API 가 나가지 않는다 */
       await codeStore.saLoadCodes(['DATE_RANGE_OPT'], {compNm: 'SyAttachMng'});
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted
@@ -213,8 +213,7 @@ window.SyAttachMng = {
         cellInnerStyle: 'background:#f0f0f0;padding:1px 5px;border-radius:3px;font-size:11px;' },
       { key: 'attachMemo', label: '메모', cellStyle: 'color:#888;' },
       { key: 'regDate', label: '등록일', style: 'width:145px;', fmt: v => coUtil.cofYmdHms(v || '') },
-      { key: 'siteNm', label: '사이트명', style: 'width:70px;',
-        cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* fileSearchColumns — 첨부파일 검색 영역 컬럼 */
@@ -233,6 +232,7 @@ window.SyAttachMng = {
         rangeOptions: () => codes.date_range_opts,
         dateWidth: '140px',
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트', width: '130px' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     /* excelModal — 엑셀 다운로드 (공용 모달) */
@@ -250,7 +250,7 @@ window.SyAttachMng = {
       attaches, uiState, searchParam, fileGridPager, detailPanel, // 상태 / 데이터
       excelModal, buildExcelParams, // 엑셀 다운로드 모달
       handleBtnAction, handleSelectAction, handleGridCellAction,  // dispatch (모든 이벤트 / 액션 라우팅)
-      cfSiteNm, fnFmtSize, fnRefTableNm,                    // computed / 헬퍼
+      fnFmtSize, fnRefTableNm,                              // 헬퍼
     };
   },
   template: /* html */`

@@ -378,7 +378,6 @@ window.SyRoleMng = {
     };
     onMounted(initPage);
 
-    const cfSiteNm  = computed(() => boUtil.bofGetSiteNm());
     const ROLE_CAT_COLOR = { ADMIN:'#7c3aed', SITE:'#2563eb', SALES:'#16a34a', DLIV:'#f59e0b' };
     /* 루트 역할코드 → 자동 카테고리 매핑 */
     const ROOT_CAT_MAP = { SUPER_ADMIN:'ADMIN', SITE_GROUP:'SITE', SITE_MGR_ROOT:'SALES', DLIV_ROOT:'DLIV' };
@@ -863,8 +862,7 @@ window.SyRoleMng = {
           },
         } },
       { key: 'roleRemark',   label: '비고',     edit: 'text' },
-      { key: 'siteNm',       label: '사이트명', style: 'width:80px;', align: 'center',
-        cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;', align: 'center', cellStyle: 'font-size:11px;color:#2563eb;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

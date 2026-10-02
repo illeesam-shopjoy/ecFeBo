@@ -15,8 +15,9 @@ window.MdSgDownloadHistMng = {
     const uiState  = reactive({ loading: false, error: null });
     const downloadHists = reactive([]);
 
-    const searchParam = reactive({ searchValue: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchValue: '' });
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 20, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [20, 50, 100], pageCond: {} });
 
@@ -89,6 +90,7 @@ window.MdSgDownloadHistMng = {
     };
 
     const initPage = async () => {
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 (fnLoadCodes 가 없는 화면이라 여기서 로드)
       await handleSearchList();
       Object.assign(searchParamInit, searchParam);
     };
@@ -99,6 +101,7 @@ window.MdSgDownloadHistMng = {
     const columns = {};
     columns.baseSearch = [
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '프로젝트명/파일명/패키지/회원 검색' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseGrid = [
@@ -109,6 +112,7 @@ window.MdSgDownloadHistMng = {
       { key: 'ddlCount',     label: '테이블', align: 'center', fmt: v => (v || 0) + '개' },
       { key: 'fileCount',    label: '파일수', align: 'center', fmt: v => (v || 0) + '개' },
       { key: 'memberNm',     label: '다운로드 회원', fmt: v => v || '-' },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
       /* type:'actions' — 재다운로드 버튼 없음(파일 자체를 재보관하지 않는 로그 전용 화면) */
       { type: 'actions', actions: [
         { label: '프로젝트',  cls: 'btn btn_detail btn-xs', visible: (row) => !!row.projectId, onClick: (row) => handleSelectAction('hist-project-open', row.projectId) },

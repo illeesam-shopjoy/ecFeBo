@@ -159,7 +159,7 @@ window.PdProdMng = {
       }
     };
     const sellers = reactive([]);   /* 판매자 목록 (검색조건 select, 2026-10-02) */
-    const searchParam = reactive({ sellerId: '',
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ sellerId: '',
       /* ⚠ 검색 키는 백엔드 PdProdDto.Request 필드명과 일치해야 한다.
          이름이 다르면 Spring 바인딩에서 조용히 버려져 "필터가 안 걸리는" 버그가 된다(에러 없음).
          cate 는 표시용 카테고리명, categoryId 가 실제 서버 전송 값. */
@@ -479,7 +479,7 @@ window.PdProdMng = {
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
           { key: 'sellerId', label: '판매자', type: 'select', options: () => sellers.map(x => ({ value: x.sellerId, label: x.sellerNm })), nullLabel: '판매자 전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     /* fnOptTypeLabel — 옵션유형 코드 → 라벨 (OPT_TYPE 코드그룹) */

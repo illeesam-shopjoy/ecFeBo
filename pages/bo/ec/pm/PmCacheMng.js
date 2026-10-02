@@ -17,7 +17,7 @@ window.PmCacheMng = {
     const uiState = reactive({ loading: false, error: null, tabMode: 'list', sortKey: '', sortDir: 'asc' });
     const codes = reactive({ cache_trans_types: [], date_range_opts: [] });
     const SORT_MAP = { reg: { asc: 'regDate asc', desc: 'regDate desc' } };
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
+    const siteOptions = reactive([]);              // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 5, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [5, 10, 20, 30, 50, 100, 200, 500], pageCond: {} });
 
     /* ===== 상세 인라인 패널 ===== */
@@ -127,7 +127,7 @@ window.PmCacheMng = {
     };
 
     const searchParam = reactive({ searchType: '', searchValue: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', cacheTypeCd: '',
-      memberId: '', memberNm: '' });
+      memberId: '', memberNm: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId(등록 사이트) 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -144,6 +144,7 @@ window.PmCacheMng = {
       try {
         codes.cache_trans_types = codeStore.sgGetGrpCodes('CACHE_TRANS_TYPE');
         codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -315,6 +316,7 @@ window.PmCacheMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 기본 그리드
@@ -328,7 +330,7 @@ window.PmCacheMng = {
       { key: 'balanceAmt',  label: '잔액', fmt: (v) => coUtil.cofWon(v) },
       { key: 'cacheDesc',   label: '내용', link: true,
         cellInnerStyle: (v) => detailPanel.selectedId === v ? 'color:#e8587a;font-weight:700;' : '' },
-      { key: 'siteNm',      label: '사이트명', cellStyle: 'color:#2563eb', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

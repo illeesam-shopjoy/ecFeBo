@@ -92,6 +92,8 @@ window.StRawMng = {
         codes.close_yn_opts = codeStore.sgGetGrpCodes('CLOSE_YN');
         codes.send_yn_opts = codeStore.sgGetGrpCodes('SEND_YN');
         codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));       // 2026-10-03 BO 멀티테넌트
+        sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -103,7 +105,9 @@ window.StRawMng = {
     };
 
     // 검색 필드
-  const searchParam = reactive({ dateRange: '이번달', dateRangeType: 'order_date', dateRangeStart: '', dateRangeEnd: '', searchMoreOpen: false, searchType: '', searchValue: '', rawTypeCd: '', rawStatusCd: '', vendorTypeCd: '', payMethodCd: '', buyConfirmYn: '', closeYn: '', erpSendYn: '', settlePeriod: '', orderItemStatusCd: '', amtFrom: '', amtTo: '' });
+  const siteOptions = reactive([]);     // 2026-10-03 BO 멀티테넌트: 사이트/판매자 검색조건 옵션
+  const sellerOptions = reactive([]);
+  const searchParam = reactive({ dateRange: '이번달', dateRangeType: 'order_date', dateRangeStart: '', dateRangeEnd: '', searchMoreOpen: false, searchType: '', searchValue: '', rawTypeCd: '', rawStatusCd: '', vendorTypeCd: '', payMethodCd: '', buyConfirmYn: '', closeYn: '', erpSendYn: '', settlePeriod: '', orderItemStatusCd: '', amtFrom: '', amtTo: '', siteId: '', sellerId: '' });   // 2026-10-03 BO 멀티테넌트: siteId/sellerId 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -277,6 +281,8 @@ const raws = reactive([]);
       { key: 'erpSendYn',      label: 'ERP',
         badge: (row) => row.erpSendYn === 'Y' ? 'badge-green' : 'badge-gray',
         fmt: (v) => v === 'Y' ? '전송' : '미전송' },
+      window.boUtil.bofSellerCol(),                          // 2026-10-03 BO 멀티테넌트: 판매자/사이트 컬럼
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),
     ];
 
     /* doCollect — 실행 */
@@ -336,6 +342,8 @@ const raws = reactive([]);
       { key: 'erpSendYn',  type: 'select', label: 'ERP전송',
         options: () => codes.send_yn_opts, nullLabel: 'ERP전송 전체', width: '110px' },
       { key: 'settlePeriod', type: 'text', label: '정산기간', placeholder: '정산기간(YYYY-MM)', width: '150px' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트', width: '130px' }),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건
+      window.boUtil.bofSellerSearchCol(() => sellerOptions, { width: '130px' }),
     ];
 
     /* moreSearchColumns — 펼침 영역(searchMoreOpen=true) 두번째 검색바 */

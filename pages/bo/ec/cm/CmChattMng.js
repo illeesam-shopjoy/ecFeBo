@@ -285,7 +285,6 @@ window.CmChattMng = {
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfDetailEditId = computed(() => detailPanel.selectedId === '__new__' ? null : detailPanel.selectedId);
 
     const cfDetailKey = computed(() => `${detailPanel.selectedId}_${detailPanel.openMode}_${detailPanel.resetSeq}`);
@@ -331,7 +330,7 @@ window.CmChattMng = {
       { key: 'chattStatusCd', label: '상태',    style: 'width:90px;',
         badge: (row) => fnStatusBadge(row.chattStatusCd) },
       { key: 'regDate',     label: '일시',      style: 'width:140px;', sortKey: 'reg',  fmt: (v) => v ? String(v).slice(0, 16) : '-' },
-      { key: 'siteNm',      label: '사이트명',  style: 'width:110px;', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:110px;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

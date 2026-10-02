@@ -251,6 +251,7 @@ window.SyI18nMng = {
       { key: 'i18nMsgCn',   label: 'cn', align: 'center', cellStyle: 'font-size:11px;color:#555', fmt: (v, row) => getLangMsg(row, 'cn') },
       { key: 'i18nMsgJa',   label: 'ja', align: 'center', cellStyle: 'font-size:11px;color:#555', fmt: (v, row) => getLangMsg(row, 'ja') },
       { key: 'useYn',       label: '사용', align: 'center', badge: (row) => fnYnBadge(row.useYn) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { type: 'actions', actions: [
         { label: '수정', cls: 'btn btn_row_edit btn-sm', onClick: (row) => handleGridCellAction('i18ns-cellClick', 'btn_row_edit', row) },
       ] },

@@ -160,7 +160,7 @@ window.DpDispWidgetMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', widgetTypeCd: '', useYn: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchType: '', searchValue: '', widgetTypeCd: '', useYn: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -457,7 +457,7 @@ window.DpDispWidgetMng = {
       { key: 'searchValue', type: 'text',   label: '검색어',    placeholder: '검색어 입력', width: '200px' },
       { key: 'widgetTypeCd',        type: 'select', label: '위젯 유형', options: () => codes.disp_widget_types, nullLabel: '전체' },
       { key: 'useYn',      type: 'select', label: '상태',      options: () => codes.active_statuses,   nullLabel: '전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     /* BoGrid 컬럼 정의 (정렬은 SORT_MAP 키 'reg' 와 sortKey 일치) */

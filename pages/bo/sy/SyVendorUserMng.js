@@ -13,7 +13,8 @@ window.SyVendorUserMng = {
     const showConfirm  = window.boApp.showConfirm;  // 확인 모달
 
     const vendorUsers = reactive([]);
-    const uiState = reactive({ loading: false, roleLoading: false, roleModalOpen: false, vendorPickOpen: false, error: null, selectedPath: null, searchVendorId: null, bizSearchType: '', bizSearchValue: '', bizVendorFlt: '', bizStatusFlt: '', treeRoleCat: '', formMode: '', dtlMode: 'view', roleModalTemp: null, userSearchType: '', userSearchValue: '', userStatusFlt: ''}); // dtlMode: 'view'|'edit' — 기본은 항상 view
+    const uiState = reactive({ loading: false, roleLoading: false, roleModalOpen: false, vendorPickOpen: false, error: null, selectedPath: null, searchVendorId: null, bizSearchType: '', bizSearchValue: '', bizVendorFlt: '', bizStatusFlt: '', treeRoleCat: '', formMode: '', dtlMode: 'view', roleModalTemp: null, userSearchType: '', userSearchValue: '', userStatusFlt: '', userSiteFlt: ''}); // dtlMode: 'view'|'edit' — 기본은 항상 view / userSiteFlt: 2026-10-03 BO 멀티테넌트 사이트 조건(→ siteId)
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     const cfDtlMode = computed(() => uiState.dtlMode === 'view');
     const codes = reactive({
       USER_STATUS: [],
@@ -224,6 +225,7 @@ window.SyVendorUserMng = {
       await codeStore.saLoadCodes(['USER_STATUS_CD', 'BOOL_YN'], {compNm: 'SyVendorUserMng'});
       codes.USER_STATUS = codeStore.sgGetGrpCodes('USER_STATUS_CD');
       codes.BOOL_YN   = codeStore.sgGetGrpCodes('BOOL_YN');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
 
@@ -307,6 +309,7 @@ window.SyVendorUserMng = {
       uiState.userSearchType = '';
       uiState.userSearchValue = '';
       uiState.userStatusFlt = '';
+      uiState.userSiteFlt = '';   // 2026-10-03 BO 멀티테넌트
       userGridPager.pageNo = 1;
       if (uiState.searchVendorId) { loadVendorUsers(uiState.searchVendorId); }
     };
@@ -325,6 +328,7 @@ window.SyVendorUserMng = {
             searchValue: (uiState.userSearchValue || '').trim(),
             searchType:  uiState.userSearchType,
             status:      uiState.userStatusFlt,
+            siteId:      uiState.userSiteFlt,   // 2026-10-03 BO 멀티테넌트: 등록 사이트 조건
           }),
         };
         if (params.searchValue && !params.searchType) {
@@ -650,6 +654,7 @@ window.SyVendorUserMng = {
       { key: 'userStatusFlt', type: 'select', label: '상태',
         options: () => (codes.user_employ_status || []).map(s => ({ value: s[0], label: s[1] })),
         nullLabel: '상태 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { key: 'userSiteFlt', label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건 (uiState 바인딩 → 요청 siteId)
     ];
 
     // 판매업체 그리드
@@ -673,6 +678,7 @@ window.SyVendorUserMng = {
       { key: 'vendorUserMobile',   label: '휴대전화' },
       { key: 'vendorUserEmail',    label: '이메일' },
       { key: 'vendorUserStatusCd', label: '상태', style: 'width:80px;text-align:center;', align: 'center', badge: (row) => fnStatusBadge(row.vendorUserStatusCd), fmt: (v) => fnStatusLabel(v) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { type: 'actions', actions: [
         { label: '수정', cls: 'btn btn_row_edit btn-sm', onClick: (row) => handleGridCellAction('vendorUsers-cellClick', 'btn_row_edit', row) },
         { label: '삭제', cls: 'btn btn_row_delete',       onClick: (row) => handleSelectAction('vendorUsers-rowDelete', row) },
@@ -728,6 +734,7 @@ window.SyVendorUserMng = {
           searchValue: (uiState.userSearchValue || '').trim(),
           searchType:  uiState.userSearchType,
           status:      uiState.userStatusFlt,
+          siteId:      uiState.userSiteFlt,   // 2026-10-03 BO 멀티테넌트
         }),
       };
       if (p.searchValue && !p.searchType) { p.searchType = 'memberNm,vendorUserEmail,vendorUserMobile'; }

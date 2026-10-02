@@ -56,8 +56,9 @@ window.MdCbSymbolMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', useYn: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchType: '', searchValue: '', useYn: '' });
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const gridRows = reactive([]);
     let   _tempId  = -1;
@@ -87,6 +88,7 @@ window.MdCbSymbolMng = {
       const codeStore = window.sfGetBoCodeStore();
       await codeStore.saLoadCodes(['USE_YN'], { compNm: 'MdCbSymbolMng' });
       codes.use_yn = codeStore.sgGetGrpCodes('USE_YN');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     const makeRow = (s) => ({
@@ -187,6 +189,7 @@ window.MdCbSymbolMng = {
         placeholder: '검색대상 전체', allLabel: '전체 선택', minWidth: '160px' },
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '검색어 입력' },
       { key: 'useYn', type: 'select', label: '사용여부', options: () => codes.use_yn, nullLabel: '사용여부 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseGrid = [
@@ -198,6 +201,7 @@ window.MdCbSymbolMng = {
       { key: 'stitchProduce', label: '생성코수', style: 'width:80px;', align: 'center', edit: 'number' },
       { key: 'sortOrd',       label: '순서',     cls: 'col-ord', edit: 'number' },
       { key: 'useYn',         label: '사용여부', cls: 'col-use', edit: 'select', options: () => codes.use_yn },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     return {

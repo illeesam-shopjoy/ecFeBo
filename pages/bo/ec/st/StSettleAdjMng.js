@@ -93,6 +93,7 @@ window.StSettleAdjMng = {
       try {
         codes.settle_adj_types = codeStore.sgGetGrpCodes('ADJ_TYPE_CD');
         codes.settle_adj_statuses = codeStore.sgGetGrpCodes('APRV_STATUS_CD');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -163,7 +164,8 @@ window.StSettleAdjMng = {
     const form = reactive({});
     const errors = reactive({});
 
-    const searchParam = reactive({ adjTypeCd: '', aprvStatusCd: '' });
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
+    const searchParam = reactive({ adjTypeCd: '', aprvStatusCd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다. */
     const searchParamInit = {};
 
@@ -295,6 +297,7 @@ window.StSettleAdjMng = {
     columns.baseSearch = [
       { key: 'adjTypeCd', label: '유형', type: 'select', options: () => codes.settle_adj_types, nullLabel: '유형 전체' },
       { key: 'aprvStatusCd', label: '승인상태', type: 'select', options: () => codes.settle_adj_statuses, nullLabel: '상태 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     /* 기본 그리드
@@ -310,6 +313,7 @@ window.StSettleAdjMng = {
       { key: 'adjReason',     label: '사유',
         cellStyle: 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' },
       { key: 'aprvStatusCd',  label: '승인상태', badge: (row) => fnAprvBadge(row.aprvStatusCd) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { key: 'regBy',         label: '등록자' },
       { key: 'regDate',       label: '등록일', fmt: (v) => coUtil.cofYmd(v) || '-' },
     ];

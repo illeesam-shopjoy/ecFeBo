@@ -43,6 +43,7 @@ window.StErpGenMng = {
       try {
         codes.erp_statuses = codeStore.sgGetGrpCodes('ERP_VOUCHER_STATUS_KR');
         codes.erp_voucher_types = codeStore.sgGetGrpCodes('ERP_VOUCHER_TYPE_KR');
+        await window.boUtil.bofLoadSiteOptions();   // 2026-10-03 BO 멀티테넌트: 그리드 사이트 이름 해석용 캐시
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -142,6 +143,7 @@ window.StErpGenMng = {
       { key: 'totalAmt',  label: '총금액', fmt: fmtW, cellStyle: 'font-weight:700' },
       { key: 'genDate',   label: '생성일',  fmt: (v) => coUtil.cofYmd(v) || '-' },
       { key: 'status',    label: '상태', badge: (row) => fnStatusBadge(row.status) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼 (검색영역 없는 화면 — 컬럼만)
       { key: 'regUserNm', label: '담당자' },
     ];
 

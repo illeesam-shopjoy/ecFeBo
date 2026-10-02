@@ -129,10 +129,11 @@ window.PmSaveMng = {
       date_range_opts: [],
     });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
+    const sellerOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 판매자 선택 옵션 (pm_save_policy.seller_id)
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 5, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [5, 10, 20, 30, 50, 100, 200, 500], pageCond: {} });
     const detailPanel = reactive({ selectedId: '__new__', openMode: 'view', reloadTrigger: 0, resetSeq: 0, active: false });
 
-    const searchParam = reactive({ searchType: '', searchValue: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', saveTypeCd: '', memberId: '', memberNm: '', mdUserId: '', mdUserNm: '', prodId: '', prodNm: '', vendorId: '', vendorNm: '' });
+    const searchParam = reactive({ siteId: '', sellerId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchType: '', searchValue: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', saveTypeCd: '', memberId: '', memberNm: '', mdUserId: '', mdUserNm: '', prodId: '', prodNm: '', vendorId: '', vendorNm: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -158,6 +159,7 @@ window.PmSaveMng = {
         console.error('[fnLoadCodes]', err);
       }
             siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));
+      sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     // ===== 정렬 처리 =======================================================
@@ -354,7 +356,8 @@ window.PmSaveMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
+      window.boUtil.bofSellerSearchCol(() => sellerOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     // 기본 그리드
@@ -370,6 +373,7 @@ window.PmSaveMng = {
       { key: 'endDate',    label: '종료일',  fmt: (v) => coUtil.cofYmd(v) || '-' },
       { key: 'saveStatus', label: '상태', badge: (row) => fnStatusBadge(row.saveStatus) },
       { key: 'siteNm',     label: '사이트', cellStyle: 'color:#2563eb' },
+      window.boUtil.bofSellerCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

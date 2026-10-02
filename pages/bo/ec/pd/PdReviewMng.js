@@ -172,7 +172,7 @@ window.PdReviewMng = {
     const listGridPager        = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 5, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [5, 10, 20, 30, 50, 100, 200, 500], pageCond: {} });
     const selectedId   = ref(null);
 
-    const searchParam = reactive({ reviewStatusCd: '', rating: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ reviewStatusCd: '', rating: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -360,7 +360,7 @@ window.PdReviewMng = {
       { key: 'searchValue', label: '리뷰제목', type: 'text', placeholder: '리뷰 제목 검색' },
       { key: 'reviewStatusCd', label: '상태', type: 'select', options: () => codes.REVIEW_STATUS, nullLabel: '전체' },
       { key: 'rating', label: '평점', type: 'select', options: () => codes.REVIEW_RATING, nullLabel: '전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */

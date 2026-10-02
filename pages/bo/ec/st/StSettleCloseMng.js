@@ -53,6 +53,7 @@ window.StSettleCloseMng = {
       await codeStore.saLoadCodes(['SETTLE_STATUS_CD'], {compNm: 'StSettleCloseMng'});
       try {
         codes.settle_statuses = codeStore.sgGetGrpCodes('SETTLE_STATUS_CD');
+        await window.boUtil.bofLoadSiteOptions();   // 2026-10-03 BO 멀티테넌트: 그리드 사이트 이름 해석용 캐시
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -172,6 +173,7 @@ window.StSettleCloseMng = {
       { key: 'etcAdjAmt',       label: '기타조정합계', fmt: fmtW },
       { key: 'finalSettleAmt',  label: '최종정산액', fmt: fmtW, cellStyle: 'color:#27ae60;font-weight:700' },
       { key: 'settleStatusCd',  label: '정산상태', badge: (row) => fnSettleStatusBadge(row.settleStatusCd) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼 (검색영역 없는 화면 — 컬럼만)
       { type: 'actions', actions: [
         { label: '마감', cls: 'btn btn-xs btn-primary', onClick: (row) => handleSelectAction('settleCandidates-rowClose', row) },
       ] },
@@ -191,6 +193,7 @@ window.StSettleCloseMng = {
         fmt: (v) => (v === 'CLOSED' ? '마감완료' : v === 'OPEN' ? '마감취소' : v) },
       { key: 'closeBy',       label: '처리자' },
       { key: 'closeDate',     label: '처리일시', fmt: (v) => coUtil.cofYmd(v) || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { type: 'actions', actions: [
         { label: '마감취소', cls: 'btn btn-xs btn-secondary', visible: (row) => row.closeStatusCd === 'CLOSED',
           onClick: (row) => handleSelectAction('settleCloses-rowReopen', row) },

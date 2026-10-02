@@ -73,9 +73,10 @@ window.MdSgStackMng = {
       }
     };
 
-    const searchParam = reactive({ categoryCd: '', useYn: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ categoryCd: '', useYn: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다. */
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const gridRows    = reactive([]);              // CRUD 그리드 행
     let   _tempId     = -1;                        // 신규 행 임시 ID
@@ -105,6 +106,7 @@ window.MdSgStackMng = {
       const codeStore = window.sfGetBoCodeStore();
       await codeStore.saLoadCodes(['USE_YN'], { compNm: 'MdSgStackMng' });
       codes.use_yn = codeStore.sgGetGrpCodes('USE_YN');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     /* makeRow — 행 생성 (BoGridCrud 가 _row_org 스냅샷과 비교해 N→U 전환을 직접 처리) */
@@ -229,6 +231,7 @@ window.MdSgStackMng = {
     columns.baseSearch = [
       { key: 'categoryCd', type: 'select', label: '구획', options: MD_SG_STACK_CATEGORY_OPTIONS, nullLabel: '전체' },
       { key: 'useYn', type: 'select', label: '사용여부', options: () => codes.use_yn, nullLabel: '전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     // 기본 그리드
@@ -240,6 +243,7 @@ window.MdSgStackMng = {
       { key: 'defaultVersion', label: '기본버전', style: 'width:90px;',  edit: 'text', mono: true, placeholder: 'v1' },
       { key: 'sortOrd',        label: '순서',    cls: 'col-ord', edit: 'number' },
       { key: 'useYn',          label: '사용여부', cls: 'col-use', edit: 'select', options: () => codes.use_yn },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

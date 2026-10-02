@@ -92,7 +92,8 @@ window.SyBbmMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', typeCd: '', useYn: 'Y' });
+    const searchParam = reactive({ searchType: '', searchValue: '', typeCd: '', useYn: 'Y', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -256,6 +257,7 @@ window.SyBbmMng = {
       await codeStore.saLoadCodes(['BBM_TYPE_CD', 'USE_YN'], {compNm: 'SyBbmMng'});
       codes.bbm_type = codeStore.sgGetGrpCodes('BBM_TYPE_CD');
       codes.use_yn = codeStore.sgGetGrpCodes('USE_YN');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted
@@ -298,7 +300,6 @@ window.SyBbmMng = {
     /* fnRowStyle — 행 스타일 (선택 행 강조) */
     const fnRowStyle = (b) => detailModal.dtlId === b.bbmId ? 'background:#fff8f9;' : '';
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfDetailEditId = computed(() => detailModal.dtlId === '__new__' ? null : detailModal.dtlId);
     const cfIsViewMode = computed(() => detailModal.dtlMode === 'view' && detailModal.dtlId !== '__new__');
     const cfDetailKey = computed(() => `${detailModal.dtlId}_${detailModal.dtlMode}_${detailModal.resetSeq}`);
@@ -315,6 +316,7 @@ window.SyBbmMng = {
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '검색어 입력' },
       { key: 'typeCd', type: 'select', label: '유형', options: () => codes.bbm_type, nullLabel: '유형 전체' },
       { key: 'useYn', type: 'select', label: '사용여부', options: () => codes.use_yn, nullLabel: '사용여부 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 기본 그리드
@@ -333,7 +335,7 @@ window.SyBbmMng = {
       { key: 'bbsCount',      label: '게시글수', align: 'center', fmt: (v) => v || 0 },
       { key: 'sortOrd',       label: '정렬순서', align: 'center' },
       { key: 'useYn',         label: '사용여부', badge: (row) => fnYnBadge(row.useYn), fmt: (v) => v === 'Y' ? '사용' : '미사용' },
-      { key: 'siteNm',        label: '사이트명', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
       { key: 'regDate',       label: '등록일',  fmt: (v) => coUtil.cofYmd(v) || '-' },
     ];
 

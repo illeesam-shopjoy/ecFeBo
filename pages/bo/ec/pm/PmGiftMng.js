@@ -137,7 +137,7 @@ window.PmGiftMng = {
     const detailPanel = reactive({ selectedId: '__new__', openMode: 'view', reloadTrigger: 0, resetSeq: 0, active: false }); // 상세영역 항상 표시 (진입 시 빈 신규 폼, active=false → 버튼 숨김)
 
     const sellers = reactive([]);   /* 판매자 목록 (검색조건 select, 2026-10-02) */
-    const searchParam = reactive({ sellerId: '', searchType: '', searchValue: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', giftTypeCd: '', giftStatusCd: '',
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ sellerId: '', searchType: '', searchValue: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', giftTypeCd: '', giftStatusCd: '',
       memberId: '', memberNm: '', mdUserId: '', mdUserNm: '', prodId: '', prodNm: '', vendorId: '', vendorNm: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
@@ -372,7 +372,7 @@ window.PmGiftMng = {
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
           { key: 'sellerId', label: '판매자', type: 'select', options: () => sellers.map(x => ({ value: x.sellerId, label: x.sellerNm })), nullLabel: '판매자 전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     // 기본 그리드

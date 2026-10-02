@@ -60,6 +60,8 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
         codes.order_statuses = codeStore.sgGetGrpCodes('ORDER_STATUS_CD');
         codes.recon_results = codeStore.sgGetGrpCodes('RECON_RESULT_ORDER');
         codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));       // 2026-10-03 BO 멀티테넌트
+        sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -73,7 +75,9 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
     const rows = reactive([]);
     const excelModal = reactive({ show: false });   // 엑셀 다운로드 모달 표시 여부
 
-    const searchParam = reactive({ searchType: '', searchValue: '', reconStatusCd: '', dateRangeType: 'reg_date', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
+    const siteOptions = reactive([]);     // 2026-10-03 BO 멀티테넌트: 사이트/판매자 검색조건 옵션
+    const sellerOptions = reactive([]);
+    const searchParam = reactive({ searchType: '', searchValue: '', reconStatusCd: '', dateRangeType: 'reg_date', dateRange: '', dateRangeStart: '', dateRangeEnd: '', siteId: '', sellerId: '' });   // 2026-10-03 BO 멀티테넌트: siteId/sellerId 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -169,6 +173,8 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
         options: [{ value: 'refId', label: '주문ID' }, { value: 'refNo', label: '주문번호' }],
         placeholder: '검색대상 전체', allLabel: '전체 선택', minWidth: '160px' },
       { key: 'searchValue', label: '검색어', type: 'text', placeholder: '검색어 입력', width: '180px' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건
+      window.boUtil.bofSellerSearchCol(() => sellerOptions),
     ];
 
     // 기본 그리드
@@ -176,6 +182,8 @@ const uiState = reactive({ error: null, dateRange: '이번달', dateRangeStart: 
       { key: 'orderId',    label: '주문ID' },
       { key: 'orderDate',  label: '주문일',  fmt: (v) => coUtil.cofYmd(v) || '-' },
       { key: 'vendorNm',   label: '업체' },
+      window.boUtil.bofSellerCol(),                          // 2026-10-03 BO 멀티테넌트: 판매자/사이트 컬럼
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),
       { key: 'orderAmt',   label: '주문금액', fmt: fmtW },
       { key: 'settleAmt',  label: '정산기준액', fmt: fmtW },
       { key: 'reconAmt',   label: '실정산액', fmt: fmtW },

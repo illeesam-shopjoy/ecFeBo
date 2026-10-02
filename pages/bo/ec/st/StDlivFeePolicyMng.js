@@ -177,6 +177,7 @@ window.StDlivFeePolicyMng = {
       await codeStore.saLoadCodes(['DLIV_METHOD_CD', 'USE_YN'], { compNm: 'StDlivFeePolicyMng' });
       codes.dliv_methods = codeStore.sgGetGrpCodes('DLIV_METHOD_CD');
       codes.use_yn        = codeStore.sgGetGrpCodes('USE_YN');
+      await window.boUtil.bofLoadSiteOptions();   // 2026-10-03 BO 멀티테넌트: 그리드 사이트 이름 해석용 캐시
     };
 
     /* initPage — 화면 로드 시퀀스 */
@@ -193,6 +194,7 @@ window.StDlivFeePolicyMng = {
       { key: 'sortOrd',      label: '순서', cls: 'col-ord', edit: 'number' },
       { key: 'useYn',        label: '사용여부', cls: 'col-use', edit: 'select', options: () => codes.use_yn },
       { key: 'remark',       label: '비고', style: 'min-width:220px;', edit: 'text', placeholder: '예: 오지/도서산간 배송 - 정률+정액 가산' },
+      window.boUtil.bofSiteCol({ style: 'width:110px;' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼 (st_dliv_fee_policy 자체 site_id · 검색영역 없는 화면 — 컬럼만)
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

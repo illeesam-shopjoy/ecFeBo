@@ -56,8 +56,9 @@ window.MdCbYarnMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', weightCd: '', useYn: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchType: '', searchValue: '', weightCd: '', useYn: '' });
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const gridRows = reactive([]);
     let   _tempId  = -1;
@@ -88,6 +89,7 @@ window.MdCbYarnMng = {
       await codeStore.saLoadCodes(['USE_YN', 'CB_YARN_WEIGHT_CD'], { compNm: 'MdCbYarnMng' });
       codes.use_yn = codeStore.sgGetGrpCodes('USE_YN');
       codes.weight_cd = codeStore.sgGetGrpCodes('CB_YARN_WEIGHT_CD');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     const makeRow = (y) => ({
@@ -187,6 +189,7 @@ window.MdCbYarnMng = {
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '검색어 입력' },
       { key: 'weightCd', type: 'select', label: '실굵기', options: () => codes.weight_cd, nullLabel: '실굵기 전체' },
       { key: 'useYn', type: 'select', label: '사용여부', options: () => codes.use_yn, nullLabel: '사용여부 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseGrid = [
@@ -195,6 +198,7 @@ window.MdCbYarnMng = {
       { key: 'weightCd', label: '굵기',   style: 'width:120px;', edit: 'select', options: () => codes.weight_cd },
       { key: 'brandNm',  label: '브랜드', style: 'min-width:140px;', edit: 'text' },
       { key: 'useYn',    label: '사용여부', cls: 'col-use', edit: 'select', options: () => codes.use_yn },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     return {

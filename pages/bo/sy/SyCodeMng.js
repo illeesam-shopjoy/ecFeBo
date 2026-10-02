@@ -154,8 +154,6 @@ window.SyCodeMng = {
     const parentOpts   = reactive([]);        // 상위코드 옵션
     const flatTree     = reactive([]);        // 트리 평면화 결과
 
-    const siteNm = boUtil.bofGetSiteNm();     // 사이트명 캐시
-
     let _tempId     = -1; // 코드 임시 ID
     let _grpTempId  = -1; // 그룹 임시 ID
     let _grpLoadSeq = 0;  // 그룹 로드 시퀀스 (race condition 방어)
@@ -697,8 +695,7 @@ window.SyCodeMng = {
         { key: 'codeOpt1',   label: '스타일 (code_opt1)', style: 'width:140px;', edit: 'text', mono: true,
           placeholder: '#000000 / fa-icon' },
         { key: 'codeRemark', label: '비고',             edit: 'text' },
-        { key: 'siteNm',     label: '사이트명',          style: 'width:80px;', align: 'center',
-          cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => siteNm },
+        window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;', align: 'center', cellStyle: 'font-size:11px;color:#2563eb;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
       );
       return cols;
     });
@@ -715,8 +712,7 @@ window.SyCodeMng = {
       { key: 'codeOpt1',        label: '스타일 (code_opt1)', style: 'width:140px;', edit: 'text', mono: true,
         placeholder: '#000000 / fa-icon' },
       { key: 'codeRemark',      label: '비고',             edit: 'text' },
-      { key: 'siteNm',          label: '사이트명',          style: 'width:80px;', align: 'center',
-        cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => siteNm },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;', align: 'center', cellStyle: 'font-size:11px;color:#2563eb;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
     /* treeRowAccessor — 트리 행 접근자 */
     const treeRowAccessor = (it) => it.node.code;

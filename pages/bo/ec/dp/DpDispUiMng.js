@@ -19,7 +19,7 @@ window.DpDispUiMng = {
     const codes = reactive({ device_types: [], use_yn: [{ value: 'Y', label: '사용' }, { value: 'N', label: '미사용' }] });
     const siteOptions = reactive([]);  // 사이트 선택 옵션 (BO 는 강제 필터 없음 — 선택적 검색용)
 
-    const searchParam = reactive({ searchValue: '', deviceTypeCd: '', useYn: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchValue: '', deviceTypeCd: '', useYn: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -191,7 +191,7 @@ window.DpDispUiMng = {
       { key: 'searchValue',  label: 'UI명',     type: 'text',   placeholder: 'UI명/코드 검색' },
       { key: 'deviceTypeCd', label: '디바이스', type: 'select', options: () => codes.device_types, nullLabel: '디바이스 전체' },
       { key: 'useYn',        label: '사용여부', type: 'select', options: () => codes.use_yn,       nullLabel: '사용여부 전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     columns.baseGrid = [

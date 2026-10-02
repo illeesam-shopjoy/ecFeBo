@@ -325,6 +325,7 @@ window.SyBrandMng = {
       { key: 'logoUrl',     label: '로고 URL',  style: 'min-width:200px;' },
       { key: 'sortOrd',     label: '순서',      cls: 'col-ord', edit: 'number' },
       { key: 'useYn',       label: '사용여부',  cls: 'col-use', edit: 'select', options: () => codes.use_yn },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:100px;' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

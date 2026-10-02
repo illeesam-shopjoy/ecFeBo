@@ -127,7 +127,8 @@ window.SyDeptMng = {
         console.warn('[fnCallbackModal] unknown popCmd:', popCmd);
       }
     };
-    const searchParam = reactive({ searchType: '', searchValue: '', type: '', useYn: 'Y' });
+    const searchParam = reactive({ searchType: '', searchValue: '', type: '', useYn: 'Y', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -256,6 +257,7 @@ window.SyDeptMng = {
       await codeStore.saLoadCodes(['USE_YN', 'DEPT_TYPE_CD'], { compNm: 'SyDeptMng' });
       codes.USE_YN     = codeStore.sgGetGrpCodes('USE_YN');
       codes.DEPT_TYPE  = codeStore.sgGetGrpCodes('DEPT_TYPE_CD');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted — 진입 시 코드 로드 + 트리 + 그리드 조회
@@ -414,7 +416,6 @@ window.SyDeptMng = {
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfTypeOptions = computed(() => [...new Set(depts.map(d => d.deptTypeCd).filter(v => v != null && v !== ''))].sort());
 
     /* parentNm — 상위 부서명 */
@@ -436,6 +437,7 @@ window.SyDeptMng = {
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '검색어 입력' },
       { key: 'type', type: 'select', label: '유형', options: () => cfTypeOptions.value, nullLabel: '유형 전체' },
       { key: 'useYn', type: 'select', label: '사용여부', options: () => codes.USE_YN, nullLabel: '사용여부 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 기본 그리드
@@ -450,8 +452,7 @@ window.SyDeptMng = {
       { key: 'sortOrd',      label: '순서',     cls: 'col-ord',  edit: 'number' },
       { key: 'useYn',        label: '사용여부', cls: 'col-use',  edit: 'select', options: () => codes.USE_YN },
       { key: 'deptRemark',   label: '비고',     edit: 'text' },
-      { key: 'siteNm',       label: '사이트명', style: 'width:80px;', align: 'center',
-        cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:90px;', align: 'center', cellStyle: 'font-size:11px;color:#2563eb;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

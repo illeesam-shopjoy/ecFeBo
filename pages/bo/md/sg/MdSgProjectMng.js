@@ -16,8 +16,9 @@ window.MdSgProjectMng = {
     const codes    = reactive({ project_status: [], db_type: [] });
     const projects = reactive([]);
 
-    const searchParam = reactive({ searchValue: '', projectStatusCd: '', dbTypeCd: '', useYn: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchValue: '', projectStatusCd: '', dbTypeCd: '', useYn: '' });
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 20, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [20, 50, 100], pageCond: {} });
 
@@ -97,6 +98,7 @@ window.MdSgProjectMng = {
       await codeStore.saLoadCodes(['SG_PROJECT_STATUS_CD', 'SG_DB_TYPE_CD'], { compNm: 'MdSgProjectMng' });
       codes.project_status = codeStore.sgGetGrpCodes('SG_PROJECT_STATUS_CD');
       codes.db_type        = codeStore.sgGetGrpCodes('SG_DB_TYPE_CD');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     };
 
     /* SG_PROJECT_STATUS_CD 실제 값은 DRAFT(작성중)/DONE(생성완료) — ACTIVE/ARCHIVED 는 없다(DB 확인, 2026-08-25 수정) */
@@ -116,6 +118,7 @@ window.MdSgProjectMng = {
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '프로젝트명/설명/패키지/작성회원 검색' },
       { key: 'projectStatusCd', type: 'select', label: '상태', options: () => codes.project_status, nullLabel: '상태 전체' },
       { key: 'dbTypeCd', type: 'select', label: 'DB', options: () => codes.db_type, nullLabel: 'DB 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseGrid = [
@@ -129,6 +132,7 @@ window.MdSgProjectMng = {
       { key: 'projectStatusCd',  label: '상태', align: 'center',
         badge: (r) => fnStatusBadge(r.projectStatusCd), fmt: (v, r) => r.projectStatusCdNm || v || '-' },
       { key: 'regDate',          label: '등록일', align: 'center', fmt: v => coUtil.cofYmd(v) || '-' },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
       /* type:'actions' — 관리 버튼모음도 별도 배열로 분리하지 않고 baseGrid 항목 하나로 선언(#row-actions 슬롯 대체, 2026-08-25) */
       { type: 'actions', actions: [
         { label: '열기', cls: 'btn btn_row_open', onClick: (row) => handleSelectAction('project-open', row.projectId) },

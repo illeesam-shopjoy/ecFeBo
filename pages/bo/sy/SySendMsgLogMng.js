@@ -331,6 +331,7 @@ window.SySendMsgLogMng = {
       { key: 'templateCode', label: '템플릿코드', mono: true, cellStyle: 'font-size:11px;color:#888', fmt: (v) => v || '-' },
       resultCol,
       { key: 'failReason',   label: '실패사유', cellStyle: 'color:#c0392b;' + fnEllip, cellTitle: (v, row) => row.failReason, fmt: (v) => v || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       dateCol,
     ];
     /* 메시지(SMS·카카오) 그리드 */
@@ -342,6 +343,7 @@ window.SySendMsgLogMng = {
       { key: 'kakaoTplCode', label: '카카오템플릿', mono: true, cellStyle: 'font-size:11px;color:#888', fmt: (v) => v || '-' },
       resultCol,
       { key: 'failReason',   label: '실패사유', cellStyle: 'color:#c0392b;' + fnEllip, cellTitle: (v, row) => row.failReason, fmt: (v) => v || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       dateCol,
     ];
     /* 시스템알림 그리드 */
@@ -358,6 +360,7 @@ window.SySendMsgLogMng = {
       { key: 'alarmId',  label: '알림ID', mono: true, cellStyle: 'font-size:11px;color:#888', fmt: (v) => v || '-' },
       { key: 'sendHistStatusCd', label: '결과', style: 'text-align:center;', align: 'center', badge: (row) => fnHistStatusBadge(row.sendHistStatusCd), fmt: (v) => v || '-' },
       { key: 'errorMsg', label: '오류메시지', cellStyle: 'color:#c0392b;' + fnEllip, cellTitle: (v, row) => row.errorMsg, fmt: (v) => v || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       dateCol,
     ];
 

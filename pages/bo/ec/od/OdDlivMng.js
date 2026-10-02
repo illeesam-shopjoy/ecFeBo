@@ -151,7 +151,7 @@ window.OdDlivMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', memberId: '', memberNm: '', dlivStatusCd: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchType: '', searchValue: '', memberId: '', memberNm: '', dlivStatusCd: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -515,7 +515,7 @@ window.OdDlivMng = {
         typeOptions: () => codes.dliv_date_types,
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     // 목록 그리드

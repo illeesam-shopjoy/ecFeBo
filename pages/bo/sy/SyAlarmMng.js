@@ -120,7 +120,8 @@ window.SyAlarmMng = {
         console.warn('[fnCallbackModal] unknown popCmd:', popCmd);
       }
     };
-    const searchParam = reactive({ searchType: '', searchValue: '', typeCd: '', status: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', typeCd: '', status: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -349,6 +350,7 @@ window.SyAlarmMng = {
       codes.alarm_type = codeStore.sgGetGrpCodes('ALARM_TYPE_CD');
       codes.alarm_status = codeStore.sgGetGrpCodes('ALARM_STATUS');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted
@@ -390,7 +392,6 @@ window.SyAlarmMng = {
     /* fnRowStyle — 행 스타일 (선택 행 강조) */
     const fnRowStyle = (a) => detailModal.dtlId === a.alarmId ? 'background:#fff8f9;' : '';
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfDetailEditId = computed(() => detailModal.dtlId === '__new__' ? null : detailModal.dtlId);
 
     const cfDetailKey = computed(() => `${detailModal.dtlId}_${detailModal.dtlMode}_${detailModal.resetSeq}`);
@@ -411,6 +412,7 @@ window.SyAlarmMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 기본 그리드
@@ -425,7 +427,7 @@ window.SyAlarmMng = {
       { key: 'targetTypeCd',  label: '대상', badge: (row) => fnTargetBadge(row.targetTypeCd) },
       { key: 'alarmSendDate', label: '발송일', fmt: (v) => v || '-' },
       { key: 'alarmStatusCd', label: '상태', badge: (row) => fnStatusBadge(row.alarmStatusCd) },
-      { key: 'siteNm',        label: '사이트명', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
       { key: 'regDate',       label: '등록일', sortKey: 'reg',  fmt: (v) => coUtil.cofYmd(v) || '-' },
     ];
 

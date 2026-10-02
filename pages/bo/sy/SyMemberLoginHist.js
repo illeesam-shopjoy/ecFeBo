@@ -394,6 +394,7 @@ window.SyMemberLoginHist = {
       { key: '_browser', excelKeys: [{key:'browser',label:'브라우저'},{key:'os',label:'OS'},{key:'device',label:'기기'}], label: 'OS/브라우저', cellStyle: 'font-size:11px;color:#666;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', cellTitle: (v, row) => row.browser + ' / ' + row.os, fmt: (v, row) => row.browser || row.device || '-' },
       { key: '_uiNm', excelKeys: [{key:'uiNm',label:'화면'},{key:'cmdNm',label:'기능'}], label: '화면 > 기능', cellStyle: 'color:#555;font-size:12px;', fmt: (v, row) => coUtil.cofUiNmCmdNm(row.uiNm, row.cmdNm) },
       { key: 'traceId',  label: 'Trace ID', mono: true, cellStyle: 'font-size:11px;color:#888;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', fmt: (v) => v || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼(regSiteId → 이름)
       { key: 'regDate',  label: '등록일시', cellStyle: 'white-space:nowrap', fmt: (v) => coUtil.cofYmdHms(v || '') },
     ];
 
@@ -415,6 +416,7 @@ window.SyMemberLoginHist = {
       { key: '_uiNm', label: '화면 > 기능', cellStyle: 'color:#555;font-size:12px;', fmt: (v, row) => coUtil.cofUiNmCmdNm(row.uiNm, row.cmdNm) },
       { key: 'traceId',       label: 'Trace ID', mono: true, cellStyle: 'font-size:11px;color:#888;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', fmt: (v) => v || '-' },
       { key: 'revokeReasonCd',  label: '폐기사유', cellStyle: 'color:#e74c3c', fmt: (v) => v || '-' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
     ];
 
     /* logGridRowDetail — 로그인 로그 행 펼침 BoFormArea 컬럼 (cols=6, 라벨+값 그대로) */

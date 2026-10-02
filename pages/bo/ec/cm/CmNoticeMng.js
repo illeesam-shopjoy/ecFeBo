@@ -261,7 +261,7 @@ window.CmNoticeMng = {
       { key: 'endDate',        label: '종료일',   style: 'width:120px;', fmt: (v) => v || '-' },
       { key: 'noticeStatusCd', label: '상태',     style: 'width:80px;',
         badge: (row) => coUtil.cofCodeBadge('NOTICE_STATUS', row.noticeStatusCd, _STATUS_FB[row.noticeStatusCd] || 'badge-gray') },
-      { key: 'siteNm',         label: '사이트명', style: 'width:110px;', cellStyle: 'color:#2563eb;', fmt: () => boUtil.bofGetSiteNm() },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:110px;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
       { key: 'regDate',        label: '등록일',   style: 'width:110px;', sortKey: 'reg',
         fmt: (v) => coUtil.cofYmd(v) || '-' },
     ];

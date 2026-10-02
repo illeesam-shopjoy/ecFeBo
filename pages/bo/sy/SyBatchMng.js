@@ -121,7 +121,8 @@ window.SyBatchMng = {
         console.warn('[fnCallbackModal] unknown popCmd:', popCmd);
       }
     };
-    const searchParam = reactive({ searchType: '', searchValue: '', status: '', runStatusCd: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', status: '', runStatusCd: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -352,6 +353,7 @@ window.SyBatchMng = {
       codes.active_statuses = codeStore.sgGetGrpCodes('ACTIVE_STATUS');
       codes.batch_run_statuses = codeStore.sgGetGrpCodes('BATCH_RUN_STATUS');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted
@@ -380,8 +382,6 @@ window.SyBatchMng = {
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
-
     // 기본 검색
     const columns = {};
     columns.baseSearch = [
@@ -398,6 +398,7 @@ window.SyBatchMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     /* fnIsRecent24h — 최근 24시간 실행 여부 */
@@ -449,8 +450,7 @@ window.SyBatchMng = {
         fmt: (v) => fnFmtLastRun(v) },
       { key: 'batchRunStatusCd',label: '최근상태',     sortKey: 'batchRunStatusCd', style: 'width:80px;', align: 'center',
         html: true, fmt: (v, row) => row._row_status === 'N' ? fnRunStatusBadge(row.batchRunStatusCd) : '' },
-      { key: 'siteNm',        label: '사이트',       style: 'width:55px;', align: 'center',
-        cellStyle: 'font-size:11px;color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:80px;', align: 'center', cellStyle: 'font-size:11px;color:#2563eb;' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

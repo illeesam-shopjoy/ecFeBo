@@ -70,6 +70,8 @@ const uiState = reactive({ loading: false, error: null, dateRange: '이번달', 
         codes.erp_voucher_types = codeStore.sgGetGrpCodes('ERP_VOUCHER_TYPE_KR');
         codes.erp_recon_results = codeStore.sgGetGrpCodes('ERP_RECON_RESULT');
         codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));       // 2026-10-03 BO 멀티테넌트
+        sellerOptions.splice(0, sellerOptions.length, ...(await window.boUtil.bofLoadSellerOptions()));
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -84,7 +86,9 @@ const uiState = reactive({ loading: false, error: null, dateRange: '이번달', 
     const recons = reactive([]);
     const excelModal = reactive({ show: false });   // 엑셀 다운로드 모달 표시 여부
 
-    const searchParam = reactive({ reconStatusCd: '', reconTypeCd: '' });
+    const siteOptions = reactive([]);     // 2026-10-03 BO 멀티테넌트: 사이트/판매자 검색조건 옵션
+    const sellerOptions = reactive([]);
+    const searchParam = reactive({ reconStatusCd: '', reconTypeCd: '', siteId: '', sellerId: '' });   // 2026-10-03 BO 멀티테넌트: siteId/sellerId 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -186,12 +190,16 @@ const uiState = reactive({ loading: false, error: null, dateRange: '이번달', 
         onRangeChange: () => handleDateRangeChange() },
       { key: 'reconTypeCd', label: '유형', type: 'select', options: () => codes.erp_voucher_types, nullLabel: '유형 전체' },
       { key: 'reconStatusCd', label: '대사결과', type: 'select', options: () => codes.erp_recon_results, nullLabel: '결과 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건
+      window.boUtil.bofSellerSearchCol(() => sellerOptions),
     ];
 
     // 기본 그리드
     columns.baseGrid = [
       { key: 'reconId',    label: '대사ID' },
       { key: 'reconDate',  label: '대사일자',  fmt: (v) => coUtil.cofYmd(v) || '-' },
+      window.boUtil.bofSellerCol(),                          // 2026-10-03 BO 멀티테넌트: 판매자/사이트 컬럼
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),
       { key: 'slipId',     label: '전표ID', cellStyle: 'font-size:11px' },
       { key: 'slipType',   label: '유형', badge: (row) => fnTypeBadge(row.slipType) },
       { key: 'sysAmt',     label: '시스템금액', fmt: fmtW, cellStyle: 'font-weight:700' },

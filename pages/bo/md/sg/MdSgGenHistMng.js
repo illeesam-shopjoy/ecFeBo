@@ -17,8 +17,9 @@ window.MdSgGenHistMng = {
     const uiState  = reactive({ loading: false, error: null });
     const genHists = reactive([]);
 
-    const searchParam = reactive({ searchValue: '', projectId: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ searchValue: '', projectId: '' });
     const searchParamInit = {};
+    const siteOptions = reactive([]);  // 2026-10-03 BO 멀티테넌트: 사이트 선택 옵션
 
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 20, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [20, 50, 100], pageCond: {} });
 
@@ -100,6 +101,7 @@ window.MdSgGenHistMng = {
     const initPage = async () => {
       /* 프로젝트관리 [이력] 버튼으로 넘어온 경우 그 프로젝트로 좁혀서 연다 */
       if (props.projectId) { searchParam.projectId = props.projectId; }
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 (fnLoadCodes 가 없는 화면이라 여기서 로드)
       await handleSearchList();
       Object.assign(searchParamInit, searchParam);
     };
@@ -110,6 +112,7 @@ window.MdSgGenHistMng = {
     const columns = {};
     columns.baseSearch = [
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '프로젝트명/파일명/메모/패키지/작성회원 검색' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseGrid = [
@@ -122,6 +125,7 @@ window.MdSgGenHistMng = {
       { key: 'zipFileSize',  label: '크기', align: 'right', fmt: v => coUtil.cofFileSize(v) },
       { key: 'genMemo',      label: '메모', fmt: v => v || '-' },
       { key: 'memberNm',     label: '작성회원', fmt: (v, r) => v || r.regUserNm || '-' },
+      window.boUtil.bofSiteCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
       /* type:'actions' — 관리 버튼모음도 별도 배열로 분리하지 않고 baseGrid 항목 하나로 선언(#row-actions 슬롯 대체, 2026-08-25) */
       { type: 'actions', actions: [
         { label: '프로젝트',  cls: 'btn btn_detail btn-xs', onClick: (row) => handleSelectAction('hist-project-open', row.projectId) },

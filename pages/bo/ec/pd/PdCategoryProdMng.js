@@ -185,7 +185,7 @@ window.PdCategoryProdMng = {
     /* -- 검색 -- */
     const pager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 10, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [5, 10, 20, 30, 50, 100, 200, 500], pageCond: {} });
 
-    const searchParam = reactive({ prodNm: '', categoryId: '', categoryIdsCsv: '', typeCd: '' });
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ prodNm: '', categoryId: '', categoryIdsCsv: '', typeCd: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -460,7 +460,7 @@ window.PdCategoryProdMng = {
         const columns = {};
         columns.baseSearch = [
       { key: 'prodNm', label: '상품명', type: 'text', placeholder: '상품명 검색', width: '280px' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     const cfCatProdGridColumns = computed(() => {
@@ -483,6 +483,7 @@ window.PdCategoryProdMng = {
           edit: 'select', options: () => codes.disp_yn_opts,
           cellStyle: (v) => v==='Y' ? 'color:#16a34a;font-weight:600;' : 'color:#9ca3af;' });
       }
+      cols.push(window.boUtil.bofSiteCol({ style: 'width:90px;text-align:center', align: 'center' }));   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
       return cols;
     });
     /* fnCatProdRowStyle — 유틸 */

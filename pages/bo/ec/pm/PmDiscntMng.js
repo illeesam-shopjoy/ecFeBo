@@ -255,7 +255,7 @@ window.PmDiscntMng = {
     const baseGridPager = reactive({ pageType: 'PAGE', pageNo: 1, pageSize: 5, pageTotalCount: 0, pageTotalPage: 1, pageSizes: [5, 10, 20, 30, 50, 100, 200, 500], pageCond: {} });
 const uiStateDetail = reactive({ selectedId: '__new__', openMode: 'view', reloadTrigger: 0, resetSeq: 0, active: false });
   const sellers = reactive([]);   /* 판매자 목록 (검색조건 select, 2026-10-02) */
-    const searchParam = reactive({ sellerId: '', searchType: '', searchValue: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', discntTypeCd: '', discntStatusCd: '',
+    const searchParam = reactive({ siteId: '', /* 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼 */ sellerId: '', searchType: '', searchValue: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', discntTypeCd: '', discntStatusCd: '',
     memberId: '', memberNm: '', mdUserId: '', mdUserNm: '', prodId: '', prodNm: '', vendorId: '', vendorNm: '' });
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
@@ -394,7 +394,7 @@ const uiStateDetail = reactive({ selectedId: '__new__', openMode: 'view', reload
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleDateRangeChange() },
           { key: 'sellerId', label: '판매자', type: 'select', options: () => sellers.map(x => ({ value: x.sellerId, label: x.sellerNm })), nullLabel: '판매자 전체' },
-          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '전체' },
+          { key: 'siteId', type: 'select', label: '사이트', options: () => siteOptions, nullLabel: '사이트 전체' },
     ];
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */

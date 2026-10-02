@@ -360,6 +360,7 @@ window.SyPathMng = {
       { key: 'useYn',        label: '사용',     style: 'width:70px;text-align:center;',
         edit: 'select', options: () => codes.use_yn },
       { key: 'pathRemark',   label: '비고',     style: 'width:160px;', edit: 'text', placeholder: '비고' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트', style: 'width:100px;' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
     ];
 
     /* fnRowClass — 행 클래스 (crud-row 베이스 + 행상태 색상)

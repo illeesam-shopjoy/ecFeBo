@@ -19,7 +19,8 @@ window.SyVendorInfoMng = {
     });
     const codes = reactive({ vendor_status: [], vendor_type_kr: [] });
 
-    const searchParam = reactive({ searchType: '', searchValue: '', vendorTypeCd: '', status: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', vendorTypeCd: '', status: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -202,6 +203,7 @@ window.SyVendorInfoMng = {
       await codeStore.saLoadCodes(['VENDOR_STATUS_CD', 'VENDOR_TYPE_KR'], {compNm: 'SyVendorInfoMng'});
       codes.vendor_status = codeStore.sgGetGrpCodes('VENDOR_STATUS_CD');
       codes.vendor_type_kr = codeStore.sgGetGrpCodes('VENDOR_TYPE_KR');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted
@@ -257,6 +259,7 @@ window.SyVendorInfoMng = {
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '검색어 입력' },
       { key: 'vendorTypeCd', type: 'select', label: '유형', options: () => codes.vendor_type_kr, nullLabel: '유형 전체' },
       { key: 'status', type: 'select', label: '상태', options: () => codes.vendor_status, nullLabel: '상태 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 2단 업체 그리드
@@ -268,6 +271,7 @@ window.SyVendorInfoMng = {
         cellInnerStyle: 'font-size:11px;background:#f0f4ff;padding:2px 6px;border-radius:3px;color:#2563eb;font-family:monospace;' },
       { key: 'vendorPhone',   label: '전화번호', cellStyle: 'font-size:11.5px' },
       { key: 'vendorStatusCd', label: '상태', align: 'center', badge: (row) => fnStatusBadge(row.vendorStatusCd) },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { type: 'actions', actions: [
         { label: (row) => (uiState.selectedVendorId === row.vendorId ? '선택됨' : '선택'), cls: 'btn btn-primary btn-xs',
           onClick: (row) => handleSelectAction('vendors-rowSelect', row) },

@@ -126,7 +126,8 @@ window.SyUserMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', role: '', status: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', role: '', status: '', dateRangeType: '', dateRange: '', dateRangeStart: '', dateRangeEnd: '', regSiteId: '' });   // 2026-10-03 BO 멀티테넌트: regSiteId 조건(백엔드 SyUser Request 필드명)
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -341,6 +342,7 @@ window.SyUserMng = {
       codes.user_roles = codeStore.sgGetGrpCodes('USER_ROLE');
       codes.user_date_types = codeStore.sgGetGrpCodes('USER_DATE_TYPE');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted — 진입 시 코드 로드 + 트리 + 목록 조회
@@ -366,7 +368,6 @@ window.SyUserMng = {
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfDetailEditId = computed(() => detailPanel.selectedId === '__new__' ? null : detailPanel.selectedId);
 
     const cfDetailKey = computed(() => `${detailPanel.selectedId}_${detailPanel.openMode}_${detailPanel.resetSeq}`);
@@ -401,6 +402,7 @@ window.SyUserMng = {
         typeOptions: () => codes.user_date_types,
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { key: 'regSiteId', label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건 (SyUser 는 regSiteId 로 필터)
     ];
 
     // 기본 그리드
@@ -416,7 +418,7 @@ window.SyUserMng = {
       { key: 'userStatusCd', label: '상태', badge: (row) => fnStatusBadge(row.userStatusCd) },
       { key: 'lastLoginDate',label: '최근로그인', sortKey: 'reg', cellStyle: 'color:#888',
         fmt: (v) => v ? v.substring(0, 10) : '-' },
-      { key: 'siteNm',       label: '사이트명', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

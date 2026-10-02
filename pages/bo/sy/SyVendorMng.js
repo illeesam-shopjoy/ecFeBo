@@ -102,7 +102,8 @@ window.SyVendorMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', vendorTypeCd: '', status: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', vendorTypeCd: '', status: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간·사이트 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -268,6 +269,7 @@ window.SyVendorMng = {
       codes.vendor_status = codeStore.sgGetGrpCodes('VENDOR_STATUS_CD');
       codes.vendor_type_kr = codeStore.sgGetGrpCodes('VENDOR_TYPE_KR');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
     };
 
     // ★ onMounted
@@ -291,7 +293,6 @@ window.SyVendorMng = {
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
 
-    const cfSiteNm = computed(() => boUtil.bofGetSiteNm());
     const cfDetailEditId = computed(() => detailPanel.selectedId === '__new__' ? null : detailPanel.selectedId);
 
     const cfDetailKey = computed(() => `${detailPanel.selectedId}_${detailPanel.openMode}_${detailPanel.resetSeq}`);
@@ -322,6 +323,7 @@ window.SyVendorMng = {
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
         onRangeChange: () => handleBtnAction('searchParam-dateRange') },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     // 기본 그리드
@@ -337,7 +339,7 @@ window.SyVendorMng = {
       { key: 'vendorEmail',   label: '이메일' },
       { key: 'contractDate',  label: '계약일', sortKey: 'reg',  fmt: (v) => coUtil.cofYmd(v) || '-' },
       { key: 'vendorStatusCd', label: '상태', badge: (row) => fnStatusBadge(row.vendorStatusCd) },
-      { key: 'siteNm',        label: '사이트명', cellStyle: 'color:#2563eb;', fmt: () => cfSiteNm.value },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 가짜 사이트 컬럼 → 행의 등록 사이트
     ];
 
     /* ##### [06] return (템플릿 노출) ############################################## */

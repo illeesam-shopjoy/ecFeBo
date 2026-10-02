@@ -90,6 +90,7 @@ window.StSettleEtcAdjMng = {
       try {
         codes.settle_etc_adj_types = codeStore.sgGetGrpCodes('ETC_ADJ_TYPE_CD');
         codes.adj_dirs = codeStore.sgGetGrpCodes('ETC_ADJ_DIR_CD');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03 BO 멀티테넌트
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -156,7 +157,8 @@ window.StSettleEtcAdjMng = {
     const form = reactive({});
     const errors = reactive({});
 
-    const searchParam = reactive({ etcAdjTypeCd: '' });
+    const siteOptions = reactive([]);   // 2026-10-03 BO 멀티테넌트: 사이트 검색조건 옵션
+    const searchParam = reactive({ etcAdjTypeCd: '', siteId: '' });   // 2026-10-03 BO 멀티테넌트: siteId 조건
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다. */
     const searchParamInit = {};
 
@@ -259,6 +261,7 @@ window.StSettleEtcAdjMng = {
     const columns = {};
     columns.baseSearch = [
       { key: 'etcAdjTypeCd', label: '유형', type: 'select', options: () => codes.settle_etc_adj_types, nullLabel: '유형 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions, { label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 조건
     ];
 
     /* 기본 그리드
@@ -276,6 +279,7 @@ window.StSettleEtcAdjMng = {
         cellStyle: (v, row) => row.etcAdjDirCd === 'ADD' ? 'color:#27ae60;font-weight:700' : 'color:#e74c3c;font-weight:700' },
       { key: 'etcAdjReason',   label: '사유',
         cellStyle: 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' },
+      window.boUtil.bofSiteCol({ label: '등록 사이트' }),   // 2026-10-03 BO 멀티테넌트: 사이트 컬럼
       { key: 'regBy',          label: '등록자' },
       { key: 'regDate',        label: '등록일', fmt: (v) => coUtil.cofYmd(v) || '-' },
     ];

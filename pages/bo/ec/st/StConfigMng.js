@@ -223,6 +223,8 @@ window.StConfigMng = {
         await codeStore.saLoadCodes(['SETTLE_CYCLE_CD', 'USE_YN'], {compNm: 'StConfigMng'});
         codes.settle_cycles = codeStore.sgGetGrpCodes('SETTLE_CYCLE_CD');
         codes.use_yn = codeStore.sgGetGrpCodes('USE_YN');
+        await window.boUtil.bofLoadSiteOptions();   // 2026-10-03 BO 멀티테넌트: 그리드 사이트/판매자 이름 해석용 캐시
+        await window.boUtil.bofLoadSellerOptions();
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -239,7 +241,8 @@ window.StConfigMng = {
     // 기본 그리드
     const columns = {};
     columns.baseGrid = [
-      { key: 'siteNm',             label: '사이트' },
+      window.boUtil.bofSiteCol(),     // 2026-10-03 BO 멀티테넌트: 사이트/판매자 컬럼 (st_settle_config 자체 site_id · sellerId/sellerNm) — 검색영역 없는 화면이라 컬럼만
+      window.boUtil.bofSellerCol(),
       { key: 'categoryNm',         label: '카테고리', link: true, cellStyle: 'font-weight:700',
         fmt: (v, row) => row.categoryNm || row.vendorNm || '-' },
       { key: 'commissionRate',     label: '수수료율', cellStyle: 'font-weight:700',
