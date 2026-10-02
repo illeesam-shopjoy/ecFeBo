@@ -1557,6 +1557,7 @@ window.AuthUserPickModal = {
     total:     { type: Number, default: 0 },          // cfPickTotal
     totalPage: { type: Number, default: 1 },          // cfPickTotalPage
     loginId:   { type: String, default: '' },         // loginForm.loginId (선택 행 강조용)
+    sites:     { type: Array,  default: () => [] },   // 사이트 목록(sy_site ACTIVE, tenantModule 포함) — 검색조건 사이트/모듈 select 용 (멀티테넌트, 2026-10-02)
     pageSize:  { type: Number, default: 20 },
     modalName:  { type: String,   default: '' },                       // 모달 식별자
     onCallback: { type: Function, default: null },                     // 통합 콜백
@@ -1576,6 +1577,12 @@ window.AuthUserPickModal = {
         return emit('search');
       } else if (cmd === 'pager-set') {
         return emit('go-page', param);
+      } else if (cmd === 'searchParam-dateRange') {
+        // 📅 기간 옵션(1년 등) 선택 → 시작/종료일 계산해 modal 에 반영하고 바로 조회
+        const r = window.boUtil?.bofGetDateRange?.(param);
+        props.modal.dateRangeStart = r ? r.from : '';
+        props.modal.dateRangeEnd = r ? r.to : '';
+        return emit('search');
       } else {
         console.warn('[handleBtnAction] unknown cmd:', cmd);
       }
@@ -1610,18 +1617,15 @@ window.AuthUserPickModal = {
        이스케이프된 텍스트로 그대로 노출되는 문제가 있었다(원인 불명확) — 프로젝트 전역에서
        이미 검증된 표준 badge 속성(coUtil 배지 패턴)으로 교체해 근본적으로 우회한다.
        siteNm 컬럼은 SyUserDto.Item 에 없는 필드라 항상 '-' 만 찍혀 제거했다(죽은 컬럼). */
+    /* 2026-10-02(요청사항: "목록에는 로그인아이디, 이름, 전화번호, 이메일, siteId, 모듈 표시해줘") — 부서/권한/상태 대신 요청 항목으로 교체.
+       사용자(sy_user)는 사이트 컬럼이 없어 등록 사이트(regSiteId)를 사이트로 보고, 모듈은 그 사이트의 FO 모듈(sy_site.tenant_module)을 서버가 채워 준다(tenantModule). */
     const userGridColumns = [
-      { key: 'userNm',       label: '이름', cellStyle: 'font-weight:700;color:#1a1a2e;', fmt: (v, row) => v || row.label || '-' },
-      { key: 'loginId',      label: '로그인ID', mono: true, cellStyle: 'color:#888;font-size:11px;', fmt: (v) => v || '-' },
-      { key: 'userEmail',    label: '이메일', cellStyle: 'color:#999;font-size:11px;', fmt: (v) => v || '-' },
-      { key: 'userPhone',    label: '연락처', cellStyle: 'color:#999;font-size:11px;', fmt: (v) => v || '-' },
-      { key: 'deptNm',       label: '부서', cellStyle: 'color:#777;', fmt: (v) => v || '-' },
-      { key: 'roleNm',       label: '권한', align: 'center',
-        badge: (row) => row.roleNm ? 'badge-purple' : 'badge-gray',
-        fmt: (v) => v || '—' },
-      { key: 'userStatusCd', label: '상태', align: 'center',
-        badge: (row) => row.userStatusCd === 'ACTIVE' ? 'badge-green' : 'badge-red',
-        fmt: (v, row) => v === 'ACTIVE' ? '활성' : (row.userStatusCdNm || '비활성') },
+      { key: 'loginId',      label: '로그인아이디', mono: true, cellStyle: 'font-weight:700;color:#1a1a2e;', fmt: (v, row) => v || row.userId || '-' },
+      { key: 'userNm',       label: '이름', fmt: (v, row) => v || row.label || '-' },
+      { key: 'userPhone',    label: '전화번호', cellStyle: 'color:#777;font-size:11px;', fmt: (v) => v || '-' },
+      { key: 'userEmail',    label: '이메일', cellStyle: 'color:#777;font-size:11px;', fmt: (v) => v || '-' },
+      { key: 'regSiteId',    label: 'siteId', mono: true, cellStyle: 'font-size:11px;', fmt: (v, row) => v ? (v + (row.regSiteNm ? ' · ' + row.regSiteNm : '')) : '-' },
+      { key: 'tenantModule', label: '모듈', align: 'center', badge: (row) => row.tenantModule ? 'badge-purple' : 'badge-gray', fmt: (v) => v || '-' },
       /* type:'actions' — 관리 버튼모음도 별도 배열로 분리하지 않고 columns 항목 하나로 선언
          (#row-actions 슬롯 대체, 2026-08-25). row-click 과 같은 동작(users-pick)이지만,
          행 전체 클릭 없이 이 버튼만 눌러도 되게 남겨둔다. */
@@ -1632,7 +1636,19 @@ window.AuthUserPickModal = {
     ];
 
     /* baseSearchColumns — 검색 영역 컬럼 */
+    /* 2026-10-02(요청사항: "상단검색영역추가해주고 등록기간 1년, 사이트, 모듈 조건 추가해줘") — 기본값(등록기간 1년 등)은 부모(boAppBase.openUserPick)가 modal 에 채운다.
+       모듈 select 는 사이트 목록의 tenantModule 을 중복 없이 모은 것(서버가 sy_site.tenant_module 로 내려줌). */
+    const cfModuleOptions = computed(() => {
+      const seen = new Set();
+      return props.sites.map((x) => x.tenantModule).filter((m) => m && !seen.has(m) && seen.add(m)).sort().map((m) => ({ value: m, label: m }));
+    });
     const baseSearchColumns = [
+      { key: 'dateRange', type: 'dateRange', label: '등록기간', startKey: 'dateRangeStart', endKey: 'dateRangeEnd', dateWidth: '118px',
+        rangeOptions: () => (window.boUtil?.bofDateRangeOptions || []),
+        onRangeChange: (range) => handleBtnAction('searchParam-dateRange', range) },
+      { key: 'regSiteId', type: 'select', label: '사이트', nullLabel: '사이트 전체',
+        options: () => props.sites.map((x) => ({ value: x.siteId, label: (x.siteCode ? x.siteCode + ' · ' : '') + (x.siteNm || x.siteId) })) },
+      { key: 'tenantModule', type: 'select', label: '모듈', nullLabel: '모듈 전체', options: () => cfModuleOptions.value },
       { key: 'searchValue', type: 'text', placeholder: '이름 / 로그인ID / 이메일 검색...' },
     ];
 

@@ -383,6 +383,9 @@ window.foAppHeader = {
         const hostPort = (host, port) => (host ? host + (port ? ':' + port : '') : '(상대경로)');
         return { api: hostPort(env.baseApiHost, env.baseApiPort), cdn: hostPort(env.cdnApiHost, env.cdnApiPort) };
       }),
+      /* 2026-10-02(요청사항: "상단에 ShopJoy 있는곳에 사이트id 모듈 값 표시해줘") — 이 배포가 고정된 사이트(sy_site.site_id, envFoConsts.siteId)와
+       * FO 모듈(pages/fo/<모듈>, foAppTenant.js 가 결정한 window.FO_TENANT_MODULE). 둘 다 비밀값이 아니다. */
+      cfTenant: computed(() => ({ siteId: (window.envFoConsts || {}).siteId || '-', module: window.FO_TENANT_MODULE || '-' })),
     };
   },
 
@@ -466,6 +469,10 @@ window.foAppHeader = {
            표시해줘") — 위 태그라인 줄(prod/dev/local 배지)에 이어 api/cdn 호스트를 한 줄 더. -->
       <span style="font-size:0.58rem;color:var(--text-muted);font-weight:400;opacity:0.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45vw;">
         api {{ cfEnvHosts.api }} · cdn {{ cfEnvHosts.cdn }}
+      </span>
+      <!-- 2026-10-02: 사이트ID · 모듈 (멀티테넌트 — 배포별 고정값) -->
+      <span style="font-size:0.58rem;color:var(--text-muted);font-weight:400;opacity:0.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45vw;">
+        site {{ cfTenant.siteId }} · <b style="font-family:monospace;color:#7c3aed;">{{ cfTenant.module }}</b>
       </span>
     </div>
   </button>
@@ -699,6 +706,7 @@ window.foAppHeader = {
           <div>{{ cfFoActive }}</div>
           <div>api {{ cfEnvHosts.api }}</div>
           <div>cdn {{ cfEnvHosts.cdn }}</div>
+          <div>site {{ cfTenant.siteId }} · {{ cfTenant.module }}</div>
         </div>
         <!-- devTip 미리보기 레이어는 이 dropdown(overflow:hidden) 밖으로 Teleport — 안에 두면
              둥근 모서리 클리핑에 잘려서 잘 안 보였다(요청사항: "값적용 이 가려보이네"). -->

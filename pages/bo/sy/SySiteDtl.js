@@ -25,6 +25,7 @@ window.SySiteDtl = {
 
     const form = reactive({                        // 사이트 폼 데이터
       siteId: null, siteCode: '', siteTypeCd: '홈페이지', siteNm: '', siteDomain: '',
+      tenantModule: '',   // FO 모듈(ec1, ec2 …) — 멀티테넌트(2026-10-02), 빈값=미지정
       logoUrl: '', faviconUrl: '', siteDesc: '',
       siteEmail: '', sitePhone: '',
       siteZipCode: '', siteAddress: '',
@@ -213,6 +214,10 @@ window.SySiteDtl = {
       { key: 'siteNm',         label: '사이트명',   type: 'text', required: true, placeholder: 'ShopJoy' },
       // 2행: 도메인 / 운영상태 / 표시경로
       { key: 'siteDomain',     label: '도메인',     type: 'text', required: true, placeholder: 'shopjoy.com' },
+      /* 멀티테넌트(2026-10-02): 이 사이트가 운영되는 FO 모듈. 배포 환경파일 .env.[사이트].[모듈].[프로파일] 의 [모듈]과 같아야 하며
+         FO 빌드(scripts/tenant.mjs)가 다르면 중단한다. 회원/사용자 목록의 "모듈"은 이 값을 사이트로 따라간다. */
+      { key: 'tenantModule',   label: 'FO 모듈',    type: 'text', placeholder: 'ec1 (빈값=미지정)', mono: true,
+        helpText: 'FO 배포 환경파일(.env.[사이트].[모듈].[프로파일])의 [모듈]과 같아야 합니다. 소문자 영숫자.' },
       { key: 'siteStatusCd',   label: '운영상태',   type: 'select', options: () => codes.site_oper_statuses },
       { key: 'pathId',         label: '표시경로',   type: 'pathPick',
         pathLabel: (id) => pathLabel(id),

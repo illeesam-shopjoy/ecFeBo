@@ -42,6 +42,9 @@ window.Login = {
       // 회원선택 모달 조회
       } else if (cmd === 'memberPickModal-search') {
         return onMemberPickSearch();
+
+      } else if (cmd === 'memberPickModal-range') {
+        return onMemberPickRange(param);
       // 회원선택 페이지 이동 (param: 페이지번호)
       } else if (cmd === 'memberPickModal-page') {
         return onMemberPickPage(param);
@@ -171,7 +174,13 @@ window.Login = {
     };
 
     /* -- 회원선택 모달 (개발용) -- */
-    const memberPick = reactive({ show: false, searchType: '', searchValue: '', loading: false, rows: [], total: 0, pageNo: 1, pageSize: 20, totalPage: 1 });
+    /* 2026-10-02(요청사항: "상단검색영역 등록기간 1년, 사이트, 모듈 조건 추가") — 등록기간은 reg_date 기준(기본 최근 1년), 사이트/모듈 기본값은 이 배포의 값
+       (envFoConsts.siteId / FO_TENANT_MODULE). 다른 사이트 회원으로는 이 배포에서 로그인해도 사이트 불일치로 거부되므로 기본값은 현재 배포에 맞춘다. */
+    const memberPick = reactive({ show: false, searchType: '', searchValue: '', dateRangeType: 'reg_date', dateRangeStart: '', dateRangeEnd: '', siteId: '', tenantModule: '', sites: [], loading: false, rows: [], total: 0, pageNo: 1, pageSize: 20, totalPage: 1 });
+    const cfPickModuleOptions = computed(() => {
+      const seen = new Set();
+      return memberPick.sites.map((x) => x.tenantModule).filter((m) => m && !seen.has(m) && seen.add(m)).sort();
+    });
     const PICK_SIZE = 20;
 
     /* ##### [05] 사용자 함수 (헬퍼 / 카운트 / 렌더 / 컬럼정의) #################### */
@@ -179,26 +188,18 @@ window.Login = {
     /* fo-grid 컬럼 — 특수 셀(이름/등급/상태/선택)은 #cell 슬롯으로 override */
     // --- [컬럼 정의] ---
     const columns = {};
+    /* 2026-10-02(요청사항: "목록에는 로그인아이디, 이름, 전화번호, 이메일, siteId, 모듈 표시해줘") — 등급/상태/가입일 대신 요청 항목으로 교체.
+       모듈(tenantModule)은 회원 소속 사이트의 FO 모듈(sy_site.tenant_module)을 서버가 채워 준다. 연락처/이메일은 로그인 전이라 서버 마스킹 규칙 그대로. */
     columns.memberPickGrid = [
-      { key: 'memberNm', label: '이름',
-        fmt: (v, row) => `${(row.memberNm || '?').charAt(0)} ${row.memberNm || '-'}`,
-        cellInnerStyle: 'font-weight:700;color:var(--text-primary);white-space:nowrap;' },
-      { key: 'loginId',  label: '로그인ID', mono: true, fmt: v => v || '-' },
+      { key: 'loginId',  label: '로그인아이디', mono: true, fmt: v => v || '-', cellInnerStyle: 'font-weight:700;color:var(--text-primary);' },
+      { key: 'memberNm', label: '이름', fmt: v => v || '-', cellInnerStyle: 'white-space:nowrap;' },
+      { key: 'memberPhone', label: '전화번호', fmt: v => v || '-' },
       { key: 'memberEmail', label: '이메일', mono: true, fmt: v => v || '-' },
-      { key: 'gradeCdNm', label: '등급',
-        fmt: v => v || '—',
-        cellInnerStyle: (v) => v
-          ? 'display:inline-block;padding:1px 7px;border-radius:9px;background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;white-space:nowrap;'
-          : 'color:var(--text-muted);' },
-      { key: 'memberStatusCd', label: '상태', align: 'center',
-        fmt: (v, row) => v === 'ACTIVE' ? '활성' : (row.memberStatusCdNm || '비활성'),
-        cellInnerStyle: (v) => v === 'ACTIVE'
-          ? 'display:inline-block;padding:1px 8px;border-radius:9px;background:#dcfce7;color:#16a34a;font-size:10px;font-weight:700;'
-          : 'display:inline-block;padding:1px 8px;border-radius:9px;background:#fee2e2;color:#dc2626;font-size:10px;font-weight:700;' },
-      { key: 'memberPhone', label: '연락처', fmt: v => v || '-' },
-      { key: 'joinDate', label: '가입일', fmt: v => (v ? v.substring(0, 10) : '-') },
+      { key: 'siteId', label: 'siteId', mono: true, fmt: (v, row) => v ? (v + (row.siteNm ? ' · ' + row.siteNm : '')) : '-', cellInnerStyle: 'font-size:11px;white-space:nowrap;' },
+      { key: 'tenantModule', label: '모듈', align: 'center', fmt: v => v || '-',
+        cellInnerStyle: (v) => v ? 'display:inline-block;padding:1px 8px;border-radius:9px;background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;font-family:monospace;' : 'color:var(--text-muted);' },
       { type: 'actions', actions: [
-        { label: '선택', style: 'background:linear-gradient(135deg,#f9a8c9,#e8587a);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;display:inline-block;',
+        { label: '선택', style: 'background:linear-gradient(135deg,#f9a8c9,#e8587a);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;',
           onClick: (row) => handleSelectAction('members-rowPick', row) },
       ] },
     ];
@@ -212,6 +213,14 @@ window.Login = {
         if (params.searchValue && !params.searchType) {
           params.searchType = 'memberNm,loginId,memberPhone';
         }
+        // 등록기간(reg_date) · 사이트 · 모듈 — 빈 값은 보내지 않는다(전체)
+        if (memberPick.dateRangeStart || memberPick.dateRangeEnd) {
+          params.dateRangeType = memberPick.dateRangeType || 'reg_date';
+          if (memberPick.dateRangeStart) params.dateRangeStart = memberPick.dateRangeStart;
+          if (memberPick.dateRangeEnd) params.dateRangeEnd = memberPick.dateRangeEnd;
+        }
+        if (memberPick.siteId) params.siteId = memberPick.siteId;
+        if (memberPick.tenantModule) params.tenantModule = memberPick.tenantModule;
         const res = await coApiSvc.mbMember.getPage(
           params,
           '로그인', '회원선택',
@@ -227,8 +236,37 @@ window.Login = {
       }
     };
 
-    /* onOpenMemberPick — 이벤트 */
-    const onOpenMemberPick = () => { memberPick.show = true; memberPick.searchType = ''; memberPick.searchValue = ''; memberPick.pageNo = 1; _loadMemberPick(); };
+    /* _loadMemberPickSites — 검색조건 사이트/모듈 select 목록(sy_site ACTIVE, 공개 API). 실패해도 목록 조회는 진행 */
+    const _loadMemberPickSites = async () => {
+      try {
+        const res = await coApiSvc.sySite.getSiteList({ status: 'ACTIVE' }, '로그인', '사이트목록조회');
+        memberPick.sites = res.data?.data || [];
+      } catch (e) {
+        console.warn('[Login] 회원선택 사이트 목록 조회 실패:', e);
+        memberPick.sites = [];
+      }
+    };
+
+    /* onOpenMemberPick — 이벤트. 기본 조건: 등록기간 최근 1년 · 이 배포의 사이트/모듈 */
+    const onOpenMemberPick = () => {
+      memberPick.show = true; memberPick.searchType = ''; memberPick.searchValue = ''; memberPick.pageNo = 1;
+      const r = window.boUtil?.bofGetDateRange?.('1year');
+      memberPick.dateRangeType = 'reg_date';
+      memberPick.dateRangeStart = r ? r.from : '';
+      memberPick.dateRangeEnd = r ? r.to : '';
+      memberPick.siteId = (window.envFoConsts || {}).siteId || '';
+      memberPick.tenantModule = window.FO_TENANT_MODULE || '';
+      if (!memberPick.sites.length) _loadMemberPickSites();
+      _loadMemberPick();
+    };
+
+    /* onMemberPickRange — 📅 기간 옵션(1년 등) 선택 → 시작/종료일 계산 후 조회 */
+    const onMemberPickRange = (range) => {
+      const r = window.boUtil?.bofGetDateRange?.(range);
+      memberPick.dateRangeStart = r ? r.from : '';
+      memberPick.dateRangeEnd = r ? r.to : '';
+      memberPick.pageNo = 1; _loadMemberPick();
+    };
 
     /* onMemberPickSearch — 이벤트 */
     const onMemberPickSearch = () => { memberPick.pageNo = 1; _loadMemberPick(); };
@@ -456,7 +494,7 @@ window.Login = {
       IS, // 스타일
       providerLabel, providerColor, providerTextColor, // 헬퍼
       foAuth: window.foAuth,                                                   // 인증 상태
-      memberPick, // 회원선택 모달
+      memberPick, cfPickModuleOptions, // 회원선택 모달
     };
   },
   template: /* html */ `
@@ -588,6 +626,27 @@ window.Login = {
         </div>
         <!-- ===== ■.■.■.■. 본문 (스크롤) ========================================== -->
         <div style="padding:14px 18px;overflow-y:auto;flex:1;">
+          <!-- ===== ■.■.■.■.■. 검색조건 — 등록기간(기본 1년) · 사이트 · 모듈 (2026-10-02) ========== -->
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:11px;color:var(--text-secondary);">
+            <span style="font-weight:700;">등록기간</span>
+            <input v-model="memberPick.dateRangeStart" type="date" style="padding:5px 6px;border:1.5px solid #f0c8d8;border-radius:8px;font-size:11px;outline:none;">
+            <span>~</span>
+            <input v-model="memberPick.dateRangeEnd" type="date" style="padding:5px 6px;border:1.5px solid #f0c8d8;border-radius:8px;font-size:11px;outline:none;">
+            <select @change="handleBtnAction('memberPickModal-range', $event.target.value)" style="padding:5px 6px;border:1.5px solid #f0c8d8;border-radius:8px;font-size:11px;outline:none;background:#fff;">
+              <option value="">📅 기간</option>
+              <option value="1month">1달</option><option value="3months">3달</option><option value="6months">6달</option><option value="1year">1년</option><option value="all">전체</option>
+            </select>
+            <span style="font-weight:700;margin-left:4px;">사이트</span>
+            <select v-model="memberPick.siteId" style="padding:5px 6px;border:1.5px solid #f0c8d8;border-radius:8px;font-size:11px;outline:none;background:#fff;max-width:200px;">
+              <option value="">사이트 전체</option>
+              <option v-for="st in memberPick.sites" :key="st.siteId" :value="st.siteId">{{ (st.siteCode ? st.siteCode + ' · ' : '') + (st.siteNm || st.siteId) }}</option>
+            </select>
+            <span style="font-weight:700;margin-left:4px;">모듈</span>
+            <select v-model="memberPick.tenantModule" style="padding:5px 6px;border:1.5px solid #f0c8d8;border-radius:8px;font-size:11px;outline:none;background:#fff;">
+              <option value="">모듈 전체</option>
+              <option v-for="m in cfPickModuleOptions" :key="m" :value="m">{{ m }}</option>
+            </select>
+          </div>
           <!-- ===== ■.■.■.■.■. 검색바 ============================================= -->
           <div style="display:flex;gap:6px;margin-bottom:10px;">
             <div style="position:relative;flex:1;">
