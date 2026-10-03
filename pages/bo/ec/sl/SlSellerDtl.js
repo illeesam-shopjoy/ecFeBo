@@ -24,13 +24,16 @@ window.SlSellerDtl = {
       vendorId: null, vendorNm: '',
       settleBankNm: '', settleBankAccount: '', settleBankHolder: '',
       emailVerifiedYn: '', emailVerifiedDate: '',   /* 판매자 신청 이메일 인증 (읽기 전용 — FO 신청 시 서버가 기록) */
+      regSiteId: '', regSiteNm: '',                 /* 2026-10-03: 판매자의 사이트(등록 사이트) — 신규 때 선택, 이후 읽기 전용(상품이 그 사이트에 속한다) */
     });
+    const siteOptions = reactive([]);              // 사이트 select 옵션 (신규 등록용)
     const refTableNm = ref('');                    // 신청서류 첨부의 sy_attach.ref_table_nm (백엔드 SyAttachRefTableConst 'SELLER' 항목에서 로드)
     const errors = reactive({});                   // 폼 검증 에러
 
     const schema = yup.object({                    // 폼 검증 스키마
       sellerNm: yup.string().required('판매자명을 입력해주세요.'),
       sellerTypeCd: yup.string().required('판매자유형을 선택해주세요.'),
+      regSiteId: yup.string().required('사이트를 선택해주세요.'),
     });
 
     const cfIsNew = computed(() => props.dtlId === null || props.dtlId === undefined);
@@ -117,7 +120,11 @@ window.SlSellerDtl = {
       const ok = await showConfirm(cfIsNew.value ? '등록' : '저장', cfIsNew.value ? '등록하시겠습니까?' : '저장하시겠습니까?');
       if (!ok) { return; }
       try {
-        const res = await (cfIsNew.value ? boApiSvc.slSeller.create({ ...form }, '판매자관리', '등록') : boApiSvc.slSeller.update(form.sellerId, { ...form }, '판매자관리', '저장'));
+        /* 사이트는 신규 등록 때만 보낸다 — 수정 때는 바꾸지 않는다(판매자의 상품이 그 사이트에 속한다) */
+        const body = { ...form };
+        delete body.regSiteNm;
+        if (!cfIsNew.value) { delete body.regSiteId; }
+        const res = await (cfIsNew.value ? boApiSvc.slSeller.create(body, '판매자관리', '등록') : boApiSvc.slSeller.update(form.sellerId, body, '판매자관리', '저장'));
         if (showToast) { showToast(cfIsNew.value ? '등록되었습니다.' : '저장되었습니다.', 'success'); }
         if (props.navigate) { props.navigate('slSellerMng', { reload: true }); }
       } catch (err) {
@@ -155,6 +162,7 @@ window.SlSellerDtl = {
         refTableNm.value = (await coUtil.cofGetAttachRefTableOptions()).find(o => o.key === 'SELLER')?.value || '';
         codes.seller_type_cd = codeStore.sgGetGrpCodes('SELLER_TYPE_CD');
         codes.seller_status_cd = codeStore.sgGetGrpCodes('SELLER_STATUS_CD');
+        siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03: 사이트 선택
       } catch (err) {
         console.error('[fnLoadCodes]', err);
       }
@@ -167,6 +175,8 @@ window.SlSellerDtl = {
     const initPage = async () => {
       await fnLoadCodes();
       if (cfIsNew.value && !form.sellerTypeCd) { form.sellerTypeCd = codes.seller_type_cd[0]?.codeValue || ''; }
+      /* 신규: 사이트 기본값 = BO 공통필터의 사이트(없으면 대표 사이트) */
+      if (cfIsNew.value && !form.regSiteId) { form.regSiteId = window.boCommonFilter?.siteId || 'SI260001'; }
       if (!cfIsNew.value) { await handleLoadDetail(); }
     };
     onMounted(initPage);
@@ -187,10 +197,13 @@ window.SlSellerDtl = {
     const columns = {};
     columns.baseForm = [
       { type: 'group', label: '판매자정보' },
-      // 1행: 판매자명(2) + 판매자유형(1)
-      { key: 'sellerNm',       label: '판매자명', type: 'text', required: true, placeholder: '판매자명', colSpan: 2 },
+      // 1행: 판매자명(1) + 판매자유형(1) + 사이트(1) — 2026-10-03: 판매자와 사이트는 1:1, 신규 때만 선택
+      { key: 'sellerNm',       label: '판매자명', type: 'text', required: true, placeholder: '판매자명' },
       { key: 'sellerTypeCd',   label: '판매자유형', type: 'select', nullable: false, required: true,
         options: () => codes.seller_type_cd },
+      { key: 'regSiteId',      label: '사이트', type: 'select', nullable: false, required: true, visible: () => cfIsNew.value,
+        options: () => siteOptions.map(s => ({ codeValue: s.value, codeLabel: s.label })) },
+      { key: 'regSiteNm',      label: '사이트', type: 'readonly', visible: () => !cfIsNew.value },
       // 2행: 상태(1) + 연결업체(2, 사업자형 전용)
       { key: 'sellerStatusCd', label: '상태', type: 'select', nullable: false,
         options: () => codes.seller_status_cd },

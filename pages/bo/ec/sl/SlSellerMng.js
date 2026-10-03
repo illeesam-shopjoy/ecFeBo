@@ -94,7 +94,8 @@ window.SlSellerMng = {
       }
     };
 
-    const searchParam = reactive({ searchType: '', searchValue: '', sellerTypeCd: '', sellerStatusCd: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '' });
+    const searchParam = reactive({ searchType: '', searchValue: '', sellerTypeCd: '', sellerStatusCd: '', dateRange: '', dateRangeType: '', dateRangeStart: '', dateRangeEnd: '', siteId: '' });   // 2026-10-03: siteId — 판매자의 사이트 조건
+    const siteOptions = reactive([]);   // 2026-10-03: 사이트 검색조건 옵션 (판매자는 한 사이트에 속한다 — 등록 사이트)
     /* searchParamInit — [초기화] 기준값. initPage 끝에서 그때의 searchParam 을 복사해 둔다.
        리터럴 기본값이 아니라 '화면을 열었을 때의 상태'가 기준이라, initPage 가 채운
        기본 기간 값도 함께 복원된다. (재대입 금지 — Object.assign 으로만 갱신) */
@@ -242,6 +243,7 @@ window.SlSellerMng = {
       codes.seller_type_cd = codeStore.sgGetGrpCodes('SELLER_TYPE_CD');
       codes.seller_status_cd = codeStore.sgGetGrpCodes('SELLER_STATUS_CD');
       codes.date_range_opts = codeStore.sgGetGrpCodes('DATE_RANGE_OPT');
+      siteOptions.splice(0, siteOptions.length, ...(await window.boUtil.bofLoadSiteOptions()));   // 2026-10-03: 사이트 조건
     };
 
     // ★ onMounted
@@ -296,6 +298,7 @@ window.SlSellerMng = {
       { key: 'searchValue', type: 'text', label: '검색어', placeholder: '검색어 입력' },
       { key: 'sellerTypeCd', type: 'select', label: '유형', options: () => codes.seller_type_cd, nullLabel: '유형 전체' },
       { key: 'sellerStatusCd', type: 'select', label: '상태', options: () => codes.seller_status_cd, nullLabel: '상태 전체' },
+      window.boUtil.bofSiteSearchCol(() => siteOptions),   // 2026-10-03: 사이트 조건 (판매자의 등록 사이트)
       { key: 'dateRange', type: 'dateRange', label: '등록일',
         startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         rangeOptions: () => codes.date_range_opts,
@@ -307,6 +310,7 @@ window.SlSellerMng = {
       { key: 'sellerId',        label: 'ID' },
       { key: 'sellerNm',      label: '판매자명', sortKey: 'nm', link: true,
         cellInnerStyle: (v) => detailPanel.selectedId === v ? 'color:#e8587a;font-weight:700;' : '' },
+      window.boUtil.bofSiteCol(),   // 2026-10-03: 판매자의 사이트(등록 사이트명) — 판매자와 사이트는 1:1
       { key: 'sellerTypeCd',    label: '유형', badge: (row) => fnTypeBadge(row.sellerTypeCd), fmt: (v) => fnTypeLabel(v) },
       { key: 'sellerStatusCd', label: '상태', badge: (row) => fnStatusBadge(row.sellerStatusCd), fmt: (v) => fnStatusLabel(v) },
       { key: 'emailVerifiedYn', label: '이메일인증', align: 'center', fmt: (v) => v === 'Y' ? '인증' : '미인증' },
