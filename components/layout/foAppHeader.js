@@ -123,6 +123,12 @@ window.foAppHeader = {
     /* ── 비밀번호 변경 모달 ── */
     const pw = reactive({ current: '', next: '', next2: '', err: '', ok: false });
 
+    /* 2026-10-03(요청사항: "FO 상단 설정아이콘에 site 정상여부 체크 토글 (기본값:disable), localStorage 에 계속 저장") —
+       켜면 foApiAxios 가 요청마다 X-Site-Check: Y 를 보내고, 백엔드는 로그인할 때 사이트(X-Site-Id)의 FO 모듈과 X-Module 이 다르면 거부한다.
+       ecFeFoNuxt4 와 같은 저장 키(modu-fo-site-check). */
+    const SITE_CHECK_KEY = 'modu-fo-site-check';
+    const siteCheckOn = ref((() => { try { return localStorage.getItem(SITE_CHECK_KEY) === 'Y'; } catch (e) { return false; } })());
+
     // ===== [02] 액션 모음 (dispatch) ==============================================
 
     /* handleBtnAction — 버튼 액션 dispatch (cmd: '{영역명}-기능명'). 5줄 이하 짧은 로직은 인라인 */
@@ -143,6 +149,11 @@ window.foAppHeader = {
       // API 응답 toast 출력 토글
       } else if (cmd === 'settings-toggle-api-toast') {
         return emit('modu-fo-toggle-api-toast');
+      // 사이트 정상여부 체크 토글 (localStorage 저장)
+      } else if (cmd === 'settings-toggle-site-check') {
+        siteCheckOn.value = !siteCheckOn.value;
+        try { localStorage.setItem(SITE_CHECK_KEY, siteCheckOn.value ? 'Y' : 'N'); } catch (e) { /* 저장 불가 환경 — 이번 화면에서만 */ }
+        return;
       // 링크 공유(URL만)
       } else if (cmd === 'settings-copy-link') {
         return handleCopyLink();
@@ -365,6 +376,7 @@ window.foAppHeader = {
       uiState, codes, userMenuRoot, addrSearchModal,                        // 상태 / refs
       handleBtnAction, handleSelectAction, fnCallbackModal,                 // dispatch
       pdfExporting, cfCompareCount,                                        // 링크/카카오공유/PDF (설정 드롭다운) / 상품비교 개수
+      siteCheckOn,                                                         // 사이트 정상여부 체크 토글 (설정 드롭다운)
       shareTip, showShareTip, hideShareTip,                                // 공유 아이콘 호버 시 실제 전달값 미리보기 레이어
       devTip, devTipPos, fnDevPresetEntries, showDevTip, hideDevTip,        // (개발) 값적용 버튼 호버 시 프리셋 내용 미리보기(Teleport)
       pf, pw, IS, cfMenuItems, genderLabel,                                 // 프로필/비번/입력
@@ -642,6 +654,16 @@ window.foAppHeader = {
           <span style="font-size:13px;">🔔</span>
           <span>API 토스트 출력</span>
           <span style="margin-left:auto;font-size:10px;border-radius:8px;padding:1px 6px;font-weight:700;" :style="appApiToast?'background:var(--accent,#c9a96e);color:#fff;':'background:#e8e8e8;color:#888;'">{{ appApiToast ? 'ON' : 'OFF' }}</span>
+        </button>
+        <button @click="handleBtnAction('settings-toggle-site-check')"
+          title="켜면 로그인할 때 서버가 이 배포의 사이트와 모듈이 맞는지 확인하고, 맞지 않으면 로그인을 막습니다"
+          style="width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;text-align:left;font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text-primary);transition:background 0.15s;"
+          :style="siteCheckOn?'background:var(--accent-dim,#fdf8f1);color:var(--accent,#c9a96e);font-weight:700;':''"
+          @mouseenter="$event.currentTarget.style.background='var(--blue-dim,#f0f4ff)'"
+          @mouseleave="$event.currentTarget.style.background=siteCheckOn?'var(--accent-dim,#fdf8f1)':'transparent'">
+          <span style="font-size:13px;">🛡️</span>
+          <span>사이트 정상여부 체크</span>
+          <span style="margin-left:auto;font-size:10px;border-radius:8px;padding:1px 6px;font-weight:700;" :style="siteCheckOn?'background:var(--accent,#c9a96e);color:#fff;':'background:#e8e8e8;color:#888;'">{{ siteCheckOn ? 'ON' : 'OFF' }}</span>
         </button>
         <!-- 2026-09-06(요청사항: "링크공유 pdf 저장 이런거로 인해 디자인 부자연스러우면 설정
              안으로 넣어도 돼") — 모바일에서 숨긴 테마토글/링크공유/카카오공유/PDF 를 여기서도
