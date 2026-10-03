@@ -195,7 +195,11 @@ window.Login = {
       { key: 'memberNm', label: '이름', fmt: v => v || '-', cellInnerStyle: 'white-space:nowrap;' },
       { key: 'memberPhone', label: '전화번호', fmt: v => v || '-' },
       { key: 'memberEmail', label: '이메일', mono: true, fmt: v => v || '-' },
-      { key: 'siteId', label: 'siteId', mono: true, fmt: (v, row) => v ? (v + (row.siteNm ? ' · ' + row.siteNm : '')) : '-', cellInnerStyle: 'font-size:11px;white-space:nowrap;' },
+      /* 2026-10-03(요청사항: "(기본)판매자, 사이트 있으면 우측에 보여줘") — 이메일 오른쪽에 (기본)판매자·사이트(이름·ID)·모듈.
+         (기본)판매자 = 회원이 소속된 판매자(sl_seller_member) 중 기본 지정 → 대표 → 첫 번째, 둘 이상이면 "외 n" (서버가 채움) */
+      { key: 'defaultSellerNm', label: '(기본)판매자', fmt: (v, row) => v ? (v + (row.sellerCnt > 1 ? ' 외 ' + (row.sellerCnt - 1) : '')) : '-',
+        cellInnerStyle: (v) => v ? 'font-size:11px;white-space:nowrap;color:#1d4ed8;font-weight:600;' : 'color:var(--text-muted);' },
+      { key: 'siteNm', label: '사이트', fmt: (v, row) => row.siteId ? ((v || '-') + ' · ' + row.siteId) : '-', cellInnerStyle: 'font-size:11px;white-space:nowrap;' },
       { key: 'tenantModule', label: '모듈', align: 'center', fmt: v => v || '-',
         cellInnerStyle: (v) => v ? 'display:inline-block;padding:1px 8px;border-radius:9px;background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;font-family:monospace;' : 'color:var(--text-muted);' },
       { type: 'actions', actions: [
@@ -604,7 +608,7 @@ window.Login = {
     <!-- ===== □.□. ════ 로그인 ════ ========================================= -->
     <!-- ===== ■.■. ════ 회원선택 모달 ════ ===================================== -->
     <div v-if="memberPick.show" class="modal-overlay" @click.self="handleBtnAction('memberPickModal-close')" style="z-index:300;">
-      <div style="background:#fff;border-radius:16px;overflow:hidden;max-width:820px;width:96%;display:flex;flex-direction:column;max-height:90vh;box-shadow:0 20px 60px rgba(0,0,0,.18);">
+      <div style="background:#fff;border-radius:16px;overflow:hidden;max-width:1200px;width:96%;display:flex;flex-direction:column;max-height:90vh;box-shadow:0 20px 60px rgba(0,0,0,.18);">
         <!-- ===== ■.■.■.■. 헤더 ================================================ -->
         <div style="background:linear-gradient(135deg,#fff0f4,#ffe4ec,#ffd5e1);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffc8d6;flex-shrink:0;">
           <div style="display:flex;align-items:center;gap:10px;">
