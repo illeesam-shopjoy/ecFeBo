@@ -176,7 +176,7 @@ window.OdClaimMng = {
 
     /* 변경작업 모달 (actionsModal) */
     const bulkForm = reactive({
-      statusByType: { '취소':'', '반품':'', '교환':'' }, type: '',
+      statusByType: { CANCEL:'', RETURN:'', EXCHANGE:'' }, type: '',   // 2026-10-03 클레임/부분환불 계약(od.13.impl) — 유형 키는 코드값
       apprAction:'', apprComment:'',
       apprToUserId:'', apprToNm:'', apprToPhone:'', apprToEmail:'',
       reqTarget:'추가결재', reqTargetNm:'', reqAmount:0, reqReason:'', tmplMsg: DEFAULT_TMPL,
@@ -328,6 +328,8 @@ window.OdClaimMng = {
       }
       if (pg === '__closeDtl__') { resetDetailToNew(); return; }
       if (pg === '__switchToEdit__') { detailPanel.openMode = 'edit'; return; }
+      // 2026-10-03 클레임/부분환불 계약(od.13.impl) — Dtl 상태 전이 후 목록만 재조회(상세 패널 유지)
+      if (pg === '__reloadList__') { handleSearchData('RELOAD'); return; }
       props.navigate(pg, opts);
     };
     const cfDetailEditId = computed(() => detailPanel.selectedId === '__new__' ? null : detailPanel.selectedId);
@@ -379,16 +381,21 @@ window.OdClaimMng = {
     const isChecked = (id) => checked.has(id);
     const cfAllChecked = computed(() => claims.length > 0 && claims.every(c => checked.has(c.claimId)));
 
-    const claimStatusCodes = (codes.claim_statuses || [])
-      .filter(c => c.codeGrp === 'CLAIM_STATUS_CD' && c.useYn === 'Y')
-      .sort((a, b) => a.sortOrd - b.sortOrd);
-
-    /* claimStatusForType — 클레임 상태 For 유형 */
-    const claimStatusForType = type => claimStatusCodes
-      .filter(c => !c.parentCodeValues || c.parentCodeValues.includes('^' + type + '^'))
-      .map(c => c.codeLabel);
-    const CLAIM_STATUS_BY_TYPE = { '취소': claimStatusForType('CANCEL'), '반품': claimStatusForType('RETURN'), '교환': claimStatusForType('EXCHANGE') };
-    const CLAIM_TYPE_OPTIONS = ['취소','반품','교환'];
+    // 2026-10-03 클레임/부분환불 계약(od.13.impl) §1 — 유형별 상태 전이(코드값) + 종결 전 반려/철회. 라벨은 boConsts.CLAIM_STATUS_LABEL
+    const CLAIM_STATUS_FLOW = {
+      CANCEL:   ['REQUESTED', 'APPROVED', 'COMPLT'],
+      RETURN:   ['REQUESTED', 'APPROVED', 'IN_PICKUP', 'PROCESSING', 'REFUND_WAIT', 'COMPLT'],
+      EXCHANGE: ['REQUESTED', 'APPROVED', 'IN_PICKUP', 'COMPLT'],
+    };
+    const fnStatusLabel = (cd) => boConsts.CLAIM_STATUS_LABEL[cd] || cd || '-';
+    /* claimStatusForType — 유형별 선택 가능 상태 [{value,label}] (앞으로만 가는 전이는 서버가 행마다 검증) */
+    const claimStatusForType = type => (CLAIM_STATUS_FLOW[type] || []).concat(['REJECTED', 'CANCELLED'])
+      .map(cd => ({ value: cd, label: cd === 'COMPLT' ? '완료(환불 실행)' : fnStatusLabel(cd) }));
+    const CLAIM_STATUS_BY_TYPE = { CANCEL: claimStatusForType('CANCEL'), RETURN: claimStatusForType('RETURN'), EXCHANGE: claimStatusForType('EXCHANGE') };
+    const CLAIM_TYPE_OPTIONS = ['CANCEL', 'RETURN', 'EXCHANGE'];
+    const CLAIM_TYPE_LABEL = { CANCEL: '취소', RETURN: '반품', EXCHANGE: '교환' };
+    /* fnTypeKey — 행의 claimTypeCd(코드 또는 레거시 한글) → 코드 */
+    const fnTypeKey = (c) => coConsts.CLAIM_TYPE_CD_MAP[c.claimTypeCd] || c.claimTypeCd || '';
 
     /* onApprToChange — 추가결재자 변경 */
     const onApprToChange = () => {
@@ -415,8 +422,8 @@ window.OdClaimMng = {
         .replace('{reason}', bulkForm.reqReason || '-');
     });
     const cfCheckedByType = computed(() => {
-      const r = { '취소':[], '반품':[], '교환':[] };
-      window.safeArrayUtils.safeForEach(claims, c => { if (checked.has(c.claimId) && r[c.claimTypeCd]) r[c.claimTypeCd].push(c.claimId); });
+      const r = { CANCEL:[], RETURN:[], EXCHANGE:[] };
+      window.safeArrayUtils.safeForEach(claims, c => { const k = fnTypeKey(c); if (checked.has(c.claimId) && r[k]) r[k].push(c.claimId); });
       return r;
     });
 
@@ -424,7 +431,7 @@ window.OdClaimMng = {
     const openBulk = () => {
       if (!checked.size) { showToast('항목을 선택하세요.', 'error'); return; }
       uiState.bulkTab = 'status';
-      bulkForm.statusByType = { '취소':'', '반품':'', '교환':'' };
+      bulkForm.statusByType = { CANCEL:'', RETURN:'', EXCHANGE:'' };
       bulkForm.type = '';
       bulkForm.apprAction = ''; bulkForm.apprComment = '';
       bulkForm.apprToUserId = ''; bulkForm.apprToNm = ''; bulkForm.apprToPhone = ''; bulkForm.apprToEmail = '';
@@ -440,8 +447,8 @@ window.OdClaimMng = {
       let rows = [];
       if (uiState.bulkTab === 'status') {
         rows = selected
-          .filter(c => bulkForm.statusByType[c.claimTypeCd])
-          .map(c => `- [${c.claimId} / ${c.memberNm} (${c.claimTypeCd})] [클레임관리] 클레임상태 변경: ${c.claimStatusCd || '-'} → ${bulkForm.statusByType[c.claimTypeCd]}`);
+          .filter(c => bulkForm.statusByType[fnTypeKey(c)])
+          .map(c => `- [${c.claimId} / ${c.memberNm} (${CLAIM_TYPE_LABEL[fnTypeKey(c)] || c.claimTypeCd})] [클레임관리] 클레임상태 변경: ${fnStatusLabel(c.claimStatusCd)} → ${fnStatusLabel(bulkForm.statusByType[fnTypeKey(c)])}`);
       } else if (uiState.bulkTab === 'type') {
         if (!bulkForm.type) { return ''; }
         rows = selected.map(c => `- [${c.claimId} / ${c.memberNm}] [클레임관리] 클레임유형 변경: ${c.claimTypeCd || '-'} → ${bulkForm.type}`);
@@ -469,8 +476,11 @@ window.OdClaimMng = {
           showToast('입력 내용을 확인해주세요.', 'error'); return;
         }
         const totalCnt = changes.reduce((s,c)=>s+c.ids.length,0);
-        const msg = changes.map(c => `[${c.type}] ${c.ids.length}건 → ${c.status}`).join('\n');
-        const ok = await showConfirm('일괄 클레임상태 변경', `${msg}\n\n총 ${totalCnt}건을 변경하시겠습니까?`);
+        const msg = changes.map(c => `[${CLAIM_TYPE_LABEL[c.type] || c.type}] ${c.ids.length}건 → ${fnStatusLabel(c.status)}`).join('\n');
+        // 2026-10-03 클레임/부분환불 계약(od.13.impl) — COMPLT 는 행마다 재고·주문·환불(PG 취소) 실행이므로 경고 문구
+        const hasComplt = changes.some(c => c.status === 'COMPLT');
+        const warn = hasComplt ? '\n\n⚠ 완료(환불 실행) 포함: 행마다 재고 복구·주문 갱신·환불(PG 취소/캐시 복원)이 실행되며 되돌릴 수 없습니다. 전이 규칙에 어긋나는 행은 서버가 거부합니다.' : '\n\n※ 전이 규칙(앞으로만, 종결 상태 변경 불가)에 어긋나는 행은 서버가 거부합니다.';
+        const ok = await showConfirm('일괄 클레임상태 변경', `${msg}\n\n총 ${totalCnt}건을 변경하시겠습니까?${warn}`);
         if (!ok) { return; }
         window.safeArrayUtils.safeForEach(changes, ch => {
           window.safeArrayUtils.safeForEach(claims, c => { if (ch.ids.includes(c.claimId)) c.claimStatusCd = ch.status; });
@@ -485,6 +495,9 @@ window.OdClaimMng = {
           console.error('[catch-info]', err);
           const errMsg = (err.response?.data?.message) || err.message || '오류가 발생했습니다.';
           if (showToast) { showToast(errMsg, 'error', 0); }
+        } finally {
+          handleSearchData('RELOAD');   // 2026-10-03 — 서버 결과(거부/완료 처리)를 목록에 반영
+          if (detailPanel.selectedId && detailPanel.selectedId !== '__new__') { detailPanel.reloadTrigger++; }
         }
       } else if (uiState.bulkTab === 'type') {
         const val = bulkForm.type;
@@ -565,7 +578,8 @@ window.OdClaimMng = {
         onOpen: () => handleBtnAction('memberPickModal-open'),
         onClear: () => handleBtnAction('memberPickModal-clear') },
       { key: 'claimTypeCd', type: 'select', label: '유형', options: () => codes.claim_types, nullLabel: '유형 전체' },
-      { key: 'claimStatusCd', type: 'select', label: '상태', options: () => codes.claim_statuses, nullLabel: '상태 전체' },
+      // 2026-10-03 클레임/부분환불 계약(od.13.impl) — 상태 옵션은 boConsts.CLAIM_STATUS(실제 8개 코드)
+      { key: 'claimStatusCd', type: 'select', label: '상태', options: () => boConsts.CLAIM_STATUS, nullLabel: '상태 전체' },
       { key: 'dateRange', type: 'dateRange', label: '신청일',
         typeKey: 'dateRangeType', startKey: 'dateRangeStart', endKey: 'dateRangeEnd',
         typeOptions: () => codes.claim_date_types,
@@ -589,8 +603,11 @@ window.OdClaimMng = {
         fmt: (v) => (v == null ? '-' : Number(v).toLocaleString() + '개') },
       { key: 'reasonDetail',  label: '사유' },
       { key: '_claimStatus',  label: '클레임상태', excelKeys: [{key:'claimTypeCdNm',label:'클레임유형'},{key:'claimStatusCdNm',label:'클레임상태'}],
-        fmt: (v, row) => `${row.claimTypeCdNm || row.claimTypeCd} · ${row.claimStatusCdNm || row.claimStatusCd}`,
-        cellInnerStyle: (v, row) => `font-size:10px;padding:2px 8px;border-radius:10px;color:#fff;font-weight:700;background:${fnClaimTypeColor(row.claimTypeCd)};` },
+        fmt: (v, row) => `${row.claimTypeCdNm || CLAIM_TYPE_LABEL[fnTypeKey(row)] || row.claimTypeCd} · ${row.claimStatusCdNm || fnStatusLabel(row.claimStatusCd)}`,
+        cellInnerStyle: (v, row) => `font-size:10px;padding:2px 8px;border-radius:10px;color:#fff;font-weight:700;background:${fnClaimTypeColor(CLAIM_TYPE_LABEL[fnTypeKey(row)] || row.claimTypeCd)};` },
+      // 2026-10-03 클레임/부분환불 계약(od.13.impl) — 서버 계산 환불액(현금성)
+      { key: 'refundAmt',     label: '환불액', align: 'right', style: 'width:90px;white-space:nowrap;',
+        fmt: (v) => (v == null ? '-' : Number(v).toLocaleString() + '원'), cellStyle: 'font-weight:700;color:#059669;' },
       { key: 'requestDate',   label: '신청일', sortKey: 'reg', style: 'white-space:nowrap;',
         fmt: (v) => (v || '').slice(0, 10) },
       { key: 'siteNm',         label: '사이트명',
@@ -635,83 +652,14 @@ window.OdClaimMng = {
 
     /* ##### [06] 클레임 금액 계산 ##################################################### */
 
-    const mngCalcDialog = reactive({ show: false, loading: false, claimId: '', claimType: '', data: null, showPayInfo: false, showRefundInfo: false, orderClaims: [], switchLoading: false });
+    // 2026-10-03 클레임/부분환불 계약(od.13.impl) — 자체 계산(fnMngCalcAmt/fnLoadMngCalcData/handleMngCalcSwitch) 삭제.
+    //   OdClaimCalcModal 이 claimId 로 조회하고 /preview 결과(§4 필드)를 표시한다.
+    const mngCalcDialog = reactive({ show: false, claimId: '', orderId: '' });
 
-    const fnMngCalcAmt = function (claimData, orderData) {
-      var items     = claimData.claimItems || [];
-      var itemAmt   = items.reduce(function (s, it) {
-        return s + (it.itemAmt || it.item_amt || (it.unitPrice || it.unit_price || 0) * (it.claimQty || it.claim_qty || 1));
-      }, 0);
-      var orderTotalAmt = orderData.payAmt || orderData.pay_amt || orderData.totalAmt || orderData.total_amt || 0;
-      var orderItemAmt  = (orderData.orderItems || []).reduce(function (s, it) {
-        return s + (it.itemOrderAmt || it.item_order_amt || (it.unitPrice || it.unit_price || it.salePrice || 0) * (it.orderQty || it.order_qty || 1));
-      }, 0);
-      var ratio = orderItemAmt > 0 ? itemAmt / orderItemAmt : (orderTotalAmt > 0 ? itemAmt / orderTotalAmt : 0);
-      if (ratio > 1) ratio = 1;
-      var couponDiscAmt = Math.round((orderData.couponDiscntAmt || orderData.couponDiscAmt || orderData.coupon_disc_amt || 0) * ratio);
-      var saveUsedAmt   = Math.round((orderData.saveUseAmt || orderData.saveUsedAmt || orderData.save_used_amt || 0) * ratio);
-      var cacheUsedAmt  = Math.round((orderData.cacheUsedAmt || orderData.cache_used_amt || 0) * ratio);
-      var totalClaimQty = items.reduce(function (s, it) { return s + (it.claimQty || it.claim_qty || 1); }, 0);
-      var totalOrderQty = (orderData.orderItems || []).reduce(function (s, it) { return s + (it.orderQty || it.order_qty || 1); }, 0);
-      var isFullCancel  = totalOrderQty > 0 && totalClaimQty >= totalOrderQty;
-      var dlivFeeRefund = isFullCancel ? (orderData.shippingFee || orderData.dlivFee || orderData.dliv_fee || 0) : 0;
-      var refundBase    = Math.max(0, itemAmt - couponDiscAmt - saveUsedAmt - cacheUsedAmt + dlivFeeRefund);
-      return { itemAmt, couponDiscAmt, saveUsedAmt, cacheUsedAmt, dlivFeeRefund, refundBase, isFullCancel, ratio,
-               orderTotalAmt, couponNm: orderData.couponNm || '', saveGradePct: orderData.saveGradePct || 0 };
-    };
-
-    const fnLoadMngCalcData = async function (claimId, orderId) {
-      var cr = await boApiSvc.odClaim.getById(claimId, '클레임관리', '계산조회');
-      var claimData = (cr.data && cr.data.data) || cr.data || {};
-      var resolvedOrderId = orderId || claimData.orderId || '';
-      var orderData = {};
-      if (resolvedOrderId) {
-        var or = await boApiSvc.odOrder.getById(resolvedOrderId, '클레임관리', '주문조회');
-        orderData = (or.data && or.data.data) || or.data || {};
-      }
-      var hr = await boApiSvc.odClaim.getStatusHist(claimId, '클레임관리', '상태이력');
-      var statusHist = (hr.data && hr.data.data) || [];
-      return { claimData, orderData, statusHist, resolvedOrderId };
-    };
-
-    const handleOpenMngCalc = async function (row) {
-      mngCalcDialog.claimId      = row.claimId || '';
-      mngCalcDialog.claimType    = row.claimTypeCd || '';
-      mngCalcDialog.data         = null;
-      mngCalcDialog.orderClaims  = [];
-      mngCalcDialog.loading      = true;
-      mngCalcDialog.show         = true;
-      try {
-        var { claimData, orderData, statusHist, resolvedOrderId } = await fnLoadMngCalcData(row.claimId, row.orderId || '');
-        mngCalcDialog.claimType = claimData.claimTypeCd || mngCalcDialog.claimType;
-        mngCalcDialog.data = { claim: claimData, order: orderData, calc: fnMngCalcAmt(claimData, orderData), statusHist };
-        if (resolvedOrderId) {
-          var lor = await boApiSvc.odClaim.getPage({ orderId: resolvedOrderId, pageNo: 1, pageSize: 100 }, '클레임관리', '주문클레임목록').catch(function () { return null; });
-          var allClaims = (lor && (lor.data?.data?.pageList || lor.data?.data?.list || [])) || [];
-          mngCalcDialog.orderClaims = allClaims.length ? allClaims : [claimData];
-        }
-      } catch (e) {
-        showToast('계산 정보 조회 중 오류가 발생했습니다.', 'error', 0);
-        mngCalcDialog.show = false;
-      } finally {
-        mngCalcDialog.loading = false;
-      }
-    };
-
-    const handleMngCalcSwitch = async function (claimId) {
-      if (!claimId || claimId === mngCalcDialog.claimId) return;
-      mngCalcDialog.switchLoading = true;
-      try {
-        var targetClaim = mngCalcDialog.orderClaims.find(function (c) { return c.claimId === claimId; }) || {};
-        var { claimData, orderData, statusHist } = await fnLoadMngCalcData(claimId, targetClaim.orderId || mngCalcDialog.data.claim.orderId || '');
-        mngCalcDialog.claimId   = claimId;
-        mngCalcDialog.claimType = claimData.claimTypeCd || '';
-        mngCalcDialog.data = { claim: claimData, order: orderData, calc: fnMngCalcAmt(claimData, orderData), statusHist };
-      } catch (e) {
-        showToast('클레임 전환 중 오류가 발생했습니다.', 'error', 0);
-      } finally {
-        mngCalcDialog.switchLoading = false;
-      }
+    const handleOpenMngCalc = function (row) {
+      mngCalcDialog.claimId = row.claimId || '';
+      mngCalcDialog.orderId = row.orderId || '';
+      mngCalcDialog.show    = true;
     };
 
     const handleCloseMngCalc = function () { mngCalcDialog.show = false; };
@@ -725,10 +673,10 @@ window.OdClaimMng = {
       handleBtnAction, handleSelectAction, fnCallbackModal, // dispatch + 모달 통합 콜백
       cfDetailEditId, cfDetailKey, cfAllChecked, cfBuildTmplMsg, cfBulkPreview, cfCheckedByType,                        // computed
       selectedId: computed(() => detailPanel.selectedId),                                                                 // template 직접 참조
-      CLAIM_STATUS_BY_TYPE,                    // 상수
-      isChecked, fnGridRowStyle,                                      // 헬퍼
+      CLAIM_STATUS_BY_TYPE, CLAIM_TYPE_OPTIONS, CLAIM_TYPE_LABEL,      // 상수 (2026-10-03 코드값 기준)
+      isChecked, fnGridRowStyle, fnClaimTypeColor,                    // 헬퍼
       inlineNavigate,                                                                                                     // Dtl 콜백 (closure 필요)
-      mngCalcDialog, handleOpenMngCalc, handleCloseMngCalc, handleMngCalcSwitch, // 계산 모달
+      mngCalcDialog, handleOpenMngCalc, handleCloseMngCalc,           // 계산 모달
     };
   },
   template: /* html */`
@@ -822,10 +770,11 @@ window.OdClaimMng = {
       </div>
       <div style="padding:20px 18px;flex:1;overflow-y:auto;min-height:280px;">
         <div v-if="uiState.bulkTab==='status'">
-          <div v-for="t in codes.claim_types.map(c=>c.codeValue)" :key="Math.random()" :style="{opacity: (cfCheckedByType[t]||[]).length ? 1 : 0.4, marginBottom:'12px'}">
+          <!-- 2026-10-03 클레임/부분환불 계약(od.13.impl) — 유형/상태 모두 코드값, 라벨만 한글 -->
+          <div v-for="t in CLAIM_TYPE_OPTIONS" :key="t" :style="{opacity: (cfCheckedByType[t]||[]).length ? 1 : 0.4, marginBottom:'12px'}">
             <label class="form-label">
-              <span :style="{display:'inline-block',fontSize:'10px',padding:'2px 8px',borderRadius:'10px',color:'#fff',fontWeight:700,marginRight:'6px',background: t==='취소'?'#ef4444':t==='반품'?'#FFBB00':'#3b82f6'}">
-                {{ t }}
+              <span :style="{display:'inline-block',fontSize:'10px',padding:'2px 8px',borderRadius:'10px',color:'#fff',fontWeight:700,marginRight:'6px',background: fnClaimTypeColor(CLAIM_TYPE_LABEL[t])}">
+                {{ CLAIM_TYPE_LABEL[t] }}
               </span>
               상태
               <span style="font-size:11px;color:#1565c0;margin-left:4px;">
@@ -834,11 +783,12 @@ window.OdClaimMng = {
             </label>
             <select class="form-control" v-model="bulkForm.statusByType[t]" :disabled="!(cfCheckedByType[t]||[]).length">
               <option value="">{{ (cfCheckedByType[t]||[]).length ? '선택하세요 (미선택시 변경안함)' : '선택된 항목 없음' }}</option>
-              <option v-for="s in CLAIM_STATUS_BY_TYPE[t]" :key="Math.random()" :value="s">
-                {{ s }}
+              <option v-for="s in CLAIM_STATUS_BY_TYPE[t]" :key="s.value" :value="s.value">
+                {{ s.label }} ({{ s.value }})
               </option>
             </select>
           </div>
+          <div style="font-size:10.5px;color:#888;margin-top:-4px;margin-bottom:8px;">※ 앞으로만 이동(건너뛰기 가능), 종결(완료/반려/철회) 상태는 변경 불가 — 어긋나는 행은 서버가 거부합니다. 완료(환불 실행)는 행마다 재고·주문·환불이 실행됩니다.</div>
           <span v-if="bulkErrors.statusByType" class="field-error">{{ bulkErrors.statusByType }}</span>
         </div>
         <div v-if="uiState.bulkTab==='type'">
@@ -901,7 +851,7 @@ window.OdClaimMng = {
   <bo-cm-popup-modal popup-cmd="cmPopup-member-pick" popup-code="member" :show="memberPick.open" :on-callback="fnCallbackModal" />
   <!-- ===== □. 회원 선택 팝업 (end) ========================================== -->
   <!-- ===== ■. 클레임 금액 계산 모달 ========================================= -->
-  <od-claim-calc-modal :show="mngCalcDialog.show" :claim-id="mngCalcDialog.claimId" @close="handleCloseMngCalc" />
+  <od-claim-calc-modal :show="mngCalcDialog.show" :claim-id="mngCalcDialog.claimId" :order-id="mngCalcDialog.orderId" @close="handleCloseMngCalc" />
   <!-- ===== □. 클레임 금액 계산 모달 ========================================= -->
   <!-- ===== ■. 엑셀 다운로드 모달 (즉시/예약 + 진행중 안내 + 강제취소) ========== -->
   <bo-excel-down-modal :show="excelModal.show" domain="odClaim"

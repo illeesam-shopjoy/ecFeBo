@@ -8,16 +8,16 @@
     { cd: 'RETURN',   label: '반품',  badge: 'badge-purple', color: '#a855f7' },
     { cd: 'EXCHANGE', label: '교환',  badge: 'badge-blue',   color: '#3b82f6' },
   ];
+  // 2026-10-03 클레임/부분환불 계약(od.13.impl) §1 — 가짜 상태(CLAIM_RECV/CANCEL_REQ/…) 대신 실제 코드값. 라벨은 boConsts.CLAIM_STATUS_LABEL
   const STATUS_FLOW = {
-    CANCEL:   ['CLAIM_RECV', 'CANCEL_REQ', 'CANCEL_DONE'],
-    RETURN:   ['CLAIM_RECV', 'RETURN_REQ', 'RETURN_COLL', 'RETURN_DONE'],
-    EXCHANGE: ['CLAIM_RECV', 'EXCH_REQ',   'EXCH_SHIP',   'EXCH_DONE'],
+    CANCEL:   ['REQUESTED', 'APPROVED', 'COMPLT'],
+    RETURN:   ['REQUESTED', 'APPROVED', 'IN_PICKUP', 'PROCESSING', 'REFUND_WAIT', 'COMPLT'],
+    EXCHANGE: ['REQUESTED', 'APPROVED', 'IN_PICKUP', 'COMPLT'],
   };
-  const STATUS_LABELS = {
-    CLAIM_RECV: '접수', CANCEL_REQ: '취소요청', CANCEL_DONE: '취소완료',
-    RETURN_REQ: '반품요청', RETURN_COLL: '수거중', RETURN_DONE: '반품완료',
-    EXCH_REQ: '교환요청', EXCH_SHIP: '교환발송', EXCH_DONE: '교환완료',
-  };
+  const STATUS_LABELS = Object.assign(
+    { REQUESTED: '요청', APPROVED: '승인', IN_PICKUP: '수거중', PROCESSING: '처리중', REFUND_WAIT: '환불대기', COMPLT: '완료', REJECTED: '반려', CANCELLED: '철회' },
+    (window.boConsts && boConsts.CLAIM_STATUS_LABEL) || {},
+  );
   const CANCEL_REASONS  = ['단순 변심', '주문 실수', '배송 지연', '가격 불만족', '다른 상품으로 대체'];
   const RETURN_REASONS  = ['상품 불량/파손', '상품 설명과 다름', '오배송', '크기/색상 불일치', '사용 후 불만족'];
   const EXCH_REASONS    = ['사이즈 교환', '색상 교환', '기능 불량', '디자인 불일치', '초기 불량'];
@@ -44,11 +44,11 @@
         partialClaim:    true,
         randomReason:    true,
         fromOrderStatus: 'COMPLT',
-        createStatus:    'CLAIM_RECV',
+        createStatus:    'REQUESTED',   // 2026-10-03 실제 코드(§1 시작 상태)
         updateAction:    'advance',
         advanceSteps:    1,
         targetType:      'CANCEL',
-        fromStatus:      'CLAIM_RECV',
+        fromStatus:      'REQUESTED',
         /* 고정 지정 */
         fixedOrderId:    '',
         fixedMemberId:   '',
@@ -247,8 +247,12 @@
             let body = {}, desc = '';
 
             if (domCfg.updateAction === 'advance') {
+              /* 2026-10-03 — 종결(COMPLT/REJECTED/CANCELLED) 은 전이 불가(§1) → 건너뛴다 */
+              if (['COMPLT', 'REJECTED', 'CANCELLED'].includes(target.claimStatusCd)) {
+                return { ok: false, reason: target.claimId + ' 종결 상태(' + (STATUS_LABELS[target.claimStatusCd] || target.claimStatusCd) + ') — 변경 불가' };
+              }
               const idx = flow.indexOf(target.claimStatusCd);
-              const nst = flow[Math.min(idx + (domCfg.advanceSteps || 1), flow.length - 1)];
+              const nst = flow[Math.min((idx < 0 ? 0 : idx) + (domCfg.advanceSteps || 1), flow.length - 1)];
               body.claimStatusCd = nst;
               desc = (STATUS_LABELS[target.claimStatusCd] || target.claimStatusCd) + ' → ' + (STATUS_LABELS[nst] || nst);
             } else {
@@ -275,7 +279,7 @@
         { key: 'fromOrderStatus', label: '대상 주문 상태', type: 'select',
           options: [{ value: '', label: '전체' }, ...ORDER_STATUS_POOL.map(s => ({ value: s, label: s }))] },
         { key: 'createStatus',   label: '클레임 초기 상태', type: 'select',
-          options: [{ value: 'CLAIM_RECV', label: '접수' }] },
+          options: [{ value: 'REQUESTED', label: STATUS_LABELS.REQUESTED + ' (REQUESTED)' }] },   // 2026-10-03 실제 코드
         { key: 'partialClaim',   label: '부분 클레임 (랜덤 수량)', type: 'select',
           options: [{ value: true, label: '예' }, { value: false, label: '아니오' }] },
         makeRangeCol('refundRateMin', 'refundRateMax', '환불률 범위', 0, 100, '%',
@@ -288,7 +292,7 @@
         { key: 'targetType',   label: '대상 유형', type: 'select',
           options: CLAIM_TYPES.map(t => ({ value: t.cd, label: t.label })) },
         { key: 'fromStatus',   label: '현재 상태', type: 'select',
-          options: [{ value: '', label: '전체' }, ...Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l }))] },
+          options: [{ value: '', label: '전체' }, ...Object.entries(STATUS_LABELS).map(([v, l]) => ({ value: v, label: l + ' (' + v + ')' }))] },
         { key: 'advanceSteps', label: '진행 단계', type: 'select',
           options: [{ value: 1, label: '1단계' }, { value: 2, label: '2단계' }],
           visible: (f) => f.updateAction === 'advance' },
@@ -492,7 +496,7 @@
       <div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:6px;">{{ domCfg.targetType }} 상태 흐름</div>
       <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
         <template v-for="(s,i) in cfAutoFlow" :key="s">
-          <span style="font-size:10px;padding:3px 7px;border-radius:4px;background:#f1f5f9;color:#64748b;">{{ STATUS_LABELS[s] || s }}</span>
+          <span style="font-size:10px;padding:3px 7px;border-radius:4px;background:#f1f5f9;color:#64748b;" :title="s">{{ STATUS_LABELS[s] || s }}</span>
           <span v-if="i < cfAutoFlow.length-1" style="color:#94a3b8;font-size:10px;"> → </span>
         </template>
       </div>

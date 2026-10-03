@@ -17,7 +17,13 @@
  * 상태코드 (DB 기준):
  *   ORDER_ITEM_STATUS: ORDERED/PAID/PREPARING/SHIPPING/DELIVERED/CONFIRMED/CANCELLED
  *   CLAIM_TYPE       : CANCEL/RETURN/EXCHANGE
- *   CLAIM_STATUS     : REQUESTED/APPROVED/IN_PICKUP/PROCESSING/COMPLT/REJECTED/CANCELLED
+ *   CLAIM_STATUS     : REQUESTED/APPROVED/IN_PICKUP/PROCESSING/REFUND_WAIT/COMPLT/REJECTED/CANCELLED
+ *
+ * 2026-10-03 클레임/부분환불 계약(od.13.impl):
+ *   · 클레임 생성(반품/교환/취소 드래그) → POST /bo/ec/od/claim/create (items 포함, 서버가 금액 계산·검증)
+ *   · 상태 변경은 전부 POST /bo/ec/od/claim/save/status (존재하지 않던 save/exchange-dliv-status 제거, 교환 2행은 IN_PICKUP → COMPLT)
+ *   · 금액 계산은 OdClaimCalcModal 이 POST /bo/ec/od/claim/preview 로 (자체 계산 제거)
+ *   · 주문항목 → 취소(CANCELLED) 드래그는 항목 상태를 직접 패치하지 않고 CANCEL 클레임을 생성한다(완료 시 서버가 항목/주문 갱신)
  */
 
 /* ── 스타일 한 번만 주입 ── */
@@ -412,7 +418,7 @@ window.OdOrderKanban = {
       desc:       '',
       memo:       '',
       dlivFields: [],   // [{ key, label, value, error }]
-      itemRows:   [],   // [{ orderItemId, prodNm, optItemNm1, optItemNm2, orderQty, claimQty, checked }]
+      itemRows:   [],   // [{ orderItemId, prodNm, optItemNm1, optItemNm2, orderQty, claimQty, checked, newProdSkuId }]  // 2026-10-03 교환 SKU
       claimType:  '',   // 계산 버튼용 (RETURN/EXCHANGE/CANCEL)
       resolve:    null,
     });
@@ -429,7 +435,8 @@ window.OdOrderKanban = {
         memoDialog.itemRows   = (opts && opts.itemRows)   ? opts.itemRows.map(function (r) {
           return { orderItemId: r.orderItemId, prodNm: r.prodNm, optItemNm1: r.optItemNm1 || '',
                    optItemNm2: r.optItemNm2 || '', orderQty: r.orderQty, claimQty: r.claimQty,
-                   checked: r.claimQty >= 1 };
+                   maxQty: r.maxQty != null ? r.maxQty : r.orderQty,   // 2026-10-03 남은 수량(orderQty − cancelQty)
+                   checked: r.claimQty >= 1, newProdSkuId: '' };
         }) : [];
         memoDialog.claimType  = (opts && opts.claimType)  ? opts.claimType : '';
         memoDialog.resolve    = resolve;
@@ -440,15 +447,34 @@ window.OdOrderKanban = {
     const handleItemRowClaimQtyInput = (row, e) => {
       var v = parseInt(e.target.value, 10);
       if (isNaN(v) || v < 0) v = 0;
-      if (v > row.orderQty) v = row.orderQty;
+      var max = row.maxQty != null ? row.maxQty : row.orderQty;
+      if (v > max) v = max;
       row.claimQty = v;
       row.checked  = v >= 1;
     };
     /* 전체 주문상품 선택 버튼 */
     const handleSelectAllItemRows = () => {
       memoDialog.itemRows.forEach(function (r) {
-        r.claimQty = r.orderQty;
-        r.checked  = true;
+        r.claimQty = r.maxQty != null ? r.maxQty : r.orderQty;
+        r.checked  = r.claimQty >= 1;
+      });
+    };
+    /* fnBuildItemRows — 2026-10-03 클레임/부분환불 계약(od.13.impl): 주문상품 전체를 itemRows 로. 클릭한 항목만 남은 수량, 나머지 0 */
+    const fnBuildItemRows = (targetItemId) => {
+      return orderItems.map(function (it) {
+        var oid = it.orderItemId || it.order_item_id || '';
+        var qty = Number(it.orderQty || it.order_qty || 1);
+        var remain = it.claimableQty != null ? Number(it.claimableQty) : Math.max(0, qty - Number(it.cancelQty || it.cancel_qty || 0));
+        var isTarget = oid === targetItemId;
+        return {
+          orderItemId: oid,
+          prodNm:      it.prodNm || it.prod_nm || '',
+          optItemNm1:  it.optItemNm1 || it.opt_item_nm1 || '',
+          optItemNm2:  it.optItemNm2 || it.opt_item_nm2 || '',
+          orderQty:    qty,
+          maxQty:      remain,
+          claimQty:    isTarget ? remain : 0,
+        };
       });
     };
     const handleMemoDialogOk = () => {
@@ -465,9 +491,15 @@ window.OdOrderKanban = {
         if (f.isCourier) result[f.key + '_code'] = f.courierCd;
       });
       if (memoDialog.itemRows.length) {
+        // 2026-10-03 클레임/부분환불 계약(od.13.impl) — /create items 형식. EXCHANGE 는 newProdSkuId/newQty(=claimQty) 포함
+        var isExch = memoDialog.claimType === 'EXCHANGE';
         result.claimItems = memoDialog.itemRows
           .filter(function (r) { return r.claimQty > 0; })
-          .map(function (r) { return { orderItemId: r.orderItemId, claimQty: r.claimQty }; });
+          .map(function (r) {
+            var it = { orderItemId: r.orderItemId, claimQty: r.claimQty };
+            if (isExch) { it.newProdSkuId = (r.newProdSkuId || '').trim() || null; it.newQty = r.claimQty; }
+            return it;
+          });
       }
       if (memoDialog.resolve) memoDialog.resolve(result);
     };
@@ -497,38 +529,42 @@ window.OdOrderKanban = {
     const DLIV_REQ_STEPS  = new Set(['SHIPPING', 'DELIVERED', 'CONFIRMED']);
     const DLIV_SHOW_STEPS = new Set(['PREPARING', 'SHIPPING', 'DELIVERED', 'CONFIRMED']);
 
-    /* ── 클레임 유형별 흐름 (DB CLAIM_STATUS 기준, 정책서 1-C 준수) ── */
+    /* ── 클레임 유형별 흐름 (DB CLAIM_STATUS 기준, 2026-10-03 클레임/부분환불 계약(od.13.impl) §1) ──
+     *  종결: COMPLT / REJECTED(운영자 반려) / CANCELLED(고객 철회). 뒤로 가기 불가, 앞으로 건너뛰기 허용. */
     const CLAIM_FLOWS = {
-      /* CANCEL: REQUESTED → APPROVED → COMPLT (철회: CANCELLED) */
+      /* CANCEL: REQUESTED → APPROVED → COMPLT (반려: REJECTED, 철회: CANCELLED) */
       CANCEL: [
         { key: 'REQUESTED', label: '취소요청',   icon: '📋', color: '#ef4444' },
-        { key: 'APPROVED',  label: '취소처리중', icon: '⏳', color: '#f97316' },
-        { key: 'COMPLT',    label: '취소완료',   icon: '✅', color: '#9ca3af' },
+        { key: 'APPROVED',  label: '취소승인',   icon: '⏳', color: '#f97316' },
+        { key: 'COMPLT',    label: '취소완료(환불)', icon: '✅', color: '#9ca3af' },
+        { key: 'REJECTED',  label: '반려',       icon: '⛔', color: '#fca5a5' },
         { key: 'CANCELLED', label: '철회',       icon: '↩️', color: '#d1d5db' },
       ],
-      /* RETURN: 1행(수거) REQUESTED→APPROVED→IN_PICKUP+CANCELLED / 2행(환불) PROCESSING→REFUND_WAIT→COMPLT */
+      /* RETURN: 1행(수거) REQUESTED→APPROVED→IN_PICKUP + REJECTED/CANCELLED / 2행(환불) PROCESSING→REFUND_WAIT→COMPLT */
       RETURN: [
         { key: 'REQUESTED',   label: '반품요청', icon: '📋', color: '#ef4444', row: 1 },
         { key: 'APPROVED',    label: '수거예정', icon: '🗓️', color: '#f59e0b', row: 1 },
         { key: 'IN_PICKUP',   label: '수거중',   icon: '🚚', color: '#8b5cf6', row: 1 },
+        { key: 'REJECTED',    label: '반려',     icon: '⛔', color: '#fca5a5', row: 1 },
         { key: 'CANCELLED',   label: '철회',     icon: '↩️', color: '#d1d5db', row: 1 },
         { key: 'PROCESSING',  label: '검수중',   icon: '📦', color: '#3b82f6', row: 2 },
         { key: 'REFUND_WAIT', label: '환불대기', icon: '💳', color: '#f97316', row: 2 },
         { key: 'COMPLT',      label: '환불완료', icon: '✅', color: '#9ca3af', row: 2 },
       ],
-      /* EXCHANGE: 1행(수거) REQUESTED→APPROVED→IN_PICKUP+CANCELLED / 2행(배송) od_dliv 기준 */
+      /* EXCHANGE: 1행(수거) REQUESTED→APPROVED→IN_PICKUP + REJECTED/CANCELLED / 2행 COMPLT(교환완료: 원 SKU 복구 + 신규 SKU 출고)
+       *  2026-10-03 — od_dliv 기반 DLIV_* 가상 단계 제거(백엔드 save/exchange-dliv-status 가 존재하지 않음). 재배송 송장은 COMPLT 메모 다이얼로그에서 선택 입력 */
       EXCHANGE: [
         { key: 'REQUESTED', label: '교환요청',   icon: '📋', color: '#3b82f6', row: 1 },
         { key: 'APPROVED',  label: '수거예정',   icon: '🗓️', color: '#f59e0b', row: 1 },
         { key: 'IN_PICKUP', label: '수거중',     icon: '🚚', color: '#8b5cf6', row: 1 },
+        { key: 'REJECTED',  label: '반려',       icon: '⛔', color: '#fca5a5', row: 1 },
         { key: 'CANCELLED', label: '철회',       icon: '↩️', color: '#d1d5db', row: 1 },
-        /* 2행: 교환 배송 단계 (od_dliv.dliv_status_cd 기준, dlivOnly=true) + 교환완료(클레임 집계) */
-        { key: 'DLIV_READY',       label: '배송준비',   icon: '📦', color: '#6366f1', row: 2, dlivOnly: true, dlivKey: 'READY' },
-        { key: 'DLIV_IN_TRANSIT',  label: '배송중',     icon: '🚚', color: '#3b82f6', row: 2, dlivOnly: true, dlivKey: 'IN_TRANSIT' },
-        { key: 'DLIV_DELIVERED',   label: '배송완료',   icon: '📬', color: '#10b981', row: 2, dlivOnly: true, dlivKey: 'DELIVERED' },
-        { key: 'COMPLT',           label: '교환완료',   icon: '🏁', color: '#22c55e', row: 2 },
+        { key: 'COMPLT',    label: '교환완료(재고 교체)', icon: '🏁', color: '#22c55e', row: 2 },
       ],
     };
+
+    /* 종결 상태 (2026-10-03 §1) — 변경 불가 */
+    const FINAL_CLAIM_STATUSES = ['COMPLT', 'REJECTED', 'CANCELLED'];
 
     /* 데이터 */
     const order      = reactive({});
@@ -671,29 +707,18 @@ window.OdOrderKanban = {
 
       const fromLabel = fnStepLabel(ORDER_STEPS, fromKey);
       const toLabel   = fnStepLabel(ORDER_STEPS, toKey);
-      /* 취소(CANCELLED) / SHIPPING 진입 시 itemRows / 배송 정보 포함 */
+      /* 2026-10-03 클레임/부분환불 계약(od.13.impl) — 주문항목 → 취소(CANCELLED) 는 항목 상태 패치가 아니라 CANCEL 클레임 생성.
+         (서버가 COMPLT 때 cancel_qty/항목·주문 상태를 갱신한다) */
+      if (toKey === 'CANCELLED') {
+        return handleCreateClaim(item, 'CANCEL');
+      }
+      /* SHIPPING 진입 시 배송 정보 포함 */
       var dlgOpts = {};
       if (toKey === 'SHIPPING') {
         dlgOpts.dlivFields = [
           { key: 'dlivCourierCd',  label: '배송 택배사',  required: true, isCourier: true, value: item.dlivCourierCd  || item.dliv_courier_cd  || '' },
           { key: 'dlivTrackingNo', label: '배송 송장번호', required: true, value: item.dlivTrackingNo || item.dliv_tracking_no || '' },
         ];
-      }
-      if (toKey === 'CANCELLED') {
-        dlgOpts.claimType = 'CANCEL';
-        dlgOpts.itemRows = orderItems.map(function (it) {
-          var oid = it.orderItemId || it.order_item_id || '';
-          var qty = it.orderQty || it.order_qty || 1;
-          var isTarget = oid === (item.orderItemId || item.order_item_id || '');
-          return {
-            orderItemId: oid,
-            prodNm:      it.prodNm || it.prod_nm || '',
-            optItemNm1:  it.optItemNm1 || it.opt_item_nm1 || '',
-            optItemNm2:  it.optItemNm2 || it.opt_item_nm2 || '',
-            orderQty:    qty,
-            claimQty:    isTarget ? qty : 0,
-          };
-        });
       }
       const dlg = await doConfirmWithMemo('주문 상태 변경', '"' + fromLabel + '" → "' + toLabel + '" 으로 변경', dlgOpts);
       if (!dlg.ok) return;
@@ -721,52 +746,40 @@ window.OdOrderKanban = {
       }
     };
 
-    /* 반품/교환 클레임 신규 생성 */
+    /* 클레임 신규 생성 (취소/반품/교환) — 2026-10-03 클레임/부분환불 계약(od.13.impl): POST /bo/ec/od/claim/create
+     *   body = { orderId, claimTypeCd, reasonCd:'ETC', reasonDetail, items:[{orderItemId, claimQty, newProdSkuId?, newQty?}] }
+     *   memberId/금액/상태(REQUESTED)/환불수단은 서버가 주문에서 채우고 계산한다. */
     const handleCreateClaim = async (item, claimType) => {
-      const typeLabel = claimType === 'RETURN' ? '반품' : '교환';
+      const typeLabel = claimType === 'RETURN' ? '반품' : claimType === 'EXCHANGE' ? '교환' : '취소';
       const itemId    = item.orderItemId || item.order_item_id || '';
       const orderId   = order.orderId    || order.order_id    || '';
-      const memberId  = order.memberId   || order.member_id   || '';
-      const prodNm    = item.prodNm      || item.prod_nm      || '';
-      /* 주문상품 전체를 itemRows로 빌드 — 클릭한 항목만 전체수량, 나머지는 0 */
-      const claimItemRows = orderItems.map(function (it) {
-        var oid = it.orderItemId || it.order_item_id || '';
-        var qty = it.orderQty || it.order_qty || 1;
-        var isTarget = oid === itemId;
-        return {
-          orderItemId: oid,
-          prodNm:      it.prodNm || it.prod_nm || '',
-          optItemNm1:  it.optItemNm1 || it.opt_item_nm1 || '',
-          optItemNm2:  it.optItemNm2 || it.opt_item_nm2 || '',
-          orderQty:    qty,
-          claimQty:    isTarget ? qty : 0,
-        };
-      });
       const dlg = await doConfirmWithMemo(
-        typeLabel + ' 신청',
-        '신청 대상 항목을 확인하고 클레임 수량을 입력하세요.',
-        { itemRows: claimItemRows, claimType: claimType }
+        typeLabel + ' 신청 (클레임 생성)',
+        claimType === 'EXCHANGE'
+          ? '신청 대상 항목의 클레임 수량과 교환 SKU(같은 상품의 다른 옵션)를 입력하세요. 금액은 서버가 계산합니다.'
+          : '신청 대상 항목을 확인하고 클레임 수량을 입력하세요. 금액은 서버가 계산합니다(💰 계산으로 미리보기).',
+        { itemRows: fnBuildItemRows(itemId), claimType: claimType }
       );
       if (!dlg.ok) return;
+      const items = dlg.claimItems || [];
+      if (!items.length) { toast('클레임 수량을 1개 이상 입력하세요.', 'error'); return; }
+      if (claimType === 'EXCHANGE' && items.some(function (i) { return !i.newProdSkuId; })) {
+        toast('교환은 품목마다 교환 SKU 를 입력해야 합니다.', 'error', 0); return;
+      }
       try {
         const body = {
-          siteId:         order.siteId    || order.site_id    || '',
-          orderId:        orderId,
-          orderItemId:    itemId,
-          memberId:       memberId,
-          memberNm:       order.memberNm  || order.member_nm  || '',
-          prodNm:         prodNm,
-          claimTypeCd:    claimType,
-          claimStatusCd:  'REQUESTED',
-          reasonDetail:   dlg.memo || '',
-          claimItems:     dlg.claimItems  || [],
+          orderId:      orderId,
+          claimTypeCd:  claimType,
+          reasonCd:     'ETC',
+          reasonDetail: dlg.memo || '',
+          items:        items,
         };
-        await apiInst.value.post(
-          '/bo/ec/od/claim',
-          body,
-          coUtil.cofApiHdr('주문칸반', typeLabel + '신청')
-        );
-        toast(typeLabel + ' 신청이 등록되었습니다.', 'success');
+        const res = window.boApiSvc
+          ? await boApiSvc.odClaim.create(body, '주문칸반', typeLabel + '신청')
+          : await apiInst.value.post('/bo/ec/od/claim/create', body, coUtil.cofApiHdr('주문칸반', typeLabel + '신청'));
+        const created = (res && res.data && (res.data.data || res.data)) || {};
+        toast(typeLabel + ' 클레임 ' + (created.claimId || '') + ' 이(가) 생성되었습니다.'
+          + (created.refundAmt != null ? ' (환불 예정 ' + Number(created.refundAmt || 0).toLocaleString() + '원)' : ''), 'success');
         /* 클레임 목록 새로고침 */
         await handleLoadOrder();
       } catch (e) {
@@ -774,119 +787,41 @@ window.OdOrderKanban = {
       }
     };
 
-    /* ── 클레임 금액 계산 다이얼로그 ── */
+    /* ── 클레임 금액 계산 다이얼로그 — 2026-10-03 자체 계산(fnCalcClaimAmt) 제거. OdClaimCalcModal 이 /preview 로 계산 ── */
     const calcDialog = reactive({
       show:         false,
-      loading:      false,
       claimId:      '',
       claimType:    '',
-      previewItems: [],   /* memo-preview 시 직접 전달 항목 */
-      data:         null,
+      previewItems: [],   /* memo-preview 시 직접 전달 항목 [{orderItemId, claimQty, newProdSkuId?, newQty?, prodNm}] */
     });
 
-    /* fnCalcClaimAmt — 클레임 대상 항목 기준 환불 예정 계산 */
-    const fnCalcClaimAmt = function (claimData) {
-      var items = claimData.claimItems || [];
-      /* 기본 상품금액 합산 */
-      var itemAmt = items.reduce(function (s, it) {
-        return s + (it.itemAmt || it.item_amt || (it.unitPrice || it.unit_price || 0) * (it.claimQty || it.claim_qty || 1));
-      }, 0);
-      /* 비례 할인 계산 (주문 총액 대비 클레임 항목 비율) */
-      var orderTotalAmt = order.payAmt || order.pay_amt || order.totalAmt || order.total_amt || 0;
-      var orderItemAmt  = orderItems.reduce(function (s, it) {
-        return s + ((it.salePrice || it.sale_price || 0) * (it.orderQty || it.order_qty || 1));
-      }, 0);
-      var ratio = orderItemAmt > 0 ? itemAmt / orderItemAmt : 0;
-      /* 쿠폰 할인 복구 */
-      var couponDiscAmt = Math.round((order.couponDiscAmt || order.coupon_disc_amt || 0) * ratio);
-      /* 적립금 사용 복구 */
-      var saveUsedAmt   = Math.round((order.saveUsedAmt  || order.save_used_amt  || 0) * ratio);
-      /* 포인트/캐시 사용 복구 */
-      var cacheUsedAmt  = Math.round((order.cacheUsedAmt || order.cache_used_amt || 0) * ratio);
-      /* 배송비 환불 여부 (전체 취소인 경우만) */
-      var totalClaimQty = items.reduce(function (s, it) { return s + (it.claimQty || it.claim_qty || 1); }, 0);
-      var totalOrderQty = orderItems.reduce(function (s, it) { return s + (it.orderQty || it.order_qty || 1); }, 0);
-      var isFullCancel  = totalClaimQty >= totalOrderQty;
-      var dlivFeeRefund = isFullCancel ? (order.dlivFee || order.dliv_fee || 0) : 0;
-      /* 최종 환불 예정액 */
-      var refundBase = itemAmt - couponDiscAmt - saveUsedAmt - cacheUsedAmt + dlivFeeRefund;
-      if (refundBase < 0) refundBase = 0;
-      return {
-        itemAmt:        itemAmt,
-        couponDiscAmt:  couponDiscAmt,
-        saveUsedAmt:    saveUsedAmt,
-        cacheUsedAmt:   cacheUsedAmt,
-        dlivFeeRefund:  dlivFeeRefund,
-        refundBase:     refundBase,
-        isFullCancel:   isFullCancel,
-        ratio:          ratio,
-        orderTotalAmt:  orderTotalAmt,
-        couponNm:       order.couponNm       || order.coupon_nm       || '',
-        saveGradePct:   order.saveGradePct   || order.save_grade_pct  || 0,
-      };
-    };
-
     /* handleOpenCalcDialog(claimOrId | 'memo-preview')
-     *   - claimId 문자열 or 클레임 객체: API 조회 후 계산
-     *   - 'memo-preview': 메모 다이얼로그의 현재 itemRows로 즉시 계산 (저장 전 미리보기)
+     *   - claimId 문자열 or 클레임 객체: 모달이 클레임 조회 후 /preview(또는 저장값) 표시
+     *   - 'memo-preview': 메모 다이얼로그의 현재 itemRows 를 previewItems 로 넘겨 /preview (저장 전 미리보기)
      */
-    const handleOpenCalcDialog = async function (claimOrId) {
+    const handleOpenCalcDialog = function (claimOrId) {
       if (claimOrId === 'memo-preview') {
-        /* 메모 다이얼로그 내 미리보기 — itemRows로 직접 계산 → OdClaimCalcModal previewItems로 위임 */
+        var isExch = memoDialog.claimType === 'EXCHANGE';
         var previewItems = memoDialog.itemRows.filter(function (r) { return r.claimQty > 0; }).map(function (r) {
-          return { orderItemId: r.orderItemId, claimQty: r.claimQty, unitPrice: 0, itemAmt: 0,
-                   prodNm: (orderItems.find(function (it) { return (it.orderItemId || it.order_item_id) === r.orderItemId; }) || {}).prodNm || '' };
+          var it = { orderItemId: r.orderItemId, claimQty: r.claimQty, prodNm: r.prodNm || '' };
+          if (isExch) { it.newProdSkuId = (r.newProdSkuId || '').trim() || null; it.newQty = r.claimQty; }
+          return it;
         });
-        /* itemAmt 역산: orderItems에서 단가 조회 */
-        previewItems.forEach(function (pi) {
-          var oi = orderItems.find(function (it) { return (it.orderItemId || it.order_item_id) === pi.orderItemId; });
-          if (oi) {
-            var price = oi.salePrice || oi.sale_price || oi.unitPrice || oi.unit_price || 0;
-            pi.unitPrice = price;
-            pi.itemAmt   = price * pi.claimQty;
-          }
-        });
+        if (!previewItems.length) { toast('클레임 수량을 1개 이상 입력하세요.', 'error'); return; }
         calcDialog.claimId      = '';
         calcDialog.claimType    = memoDialog.claimType;
         calcDialog.previewItems = previewItems;
-        calcDialog.data         = null;
-        calcDialog.loading      = false;
         calcDialog.show         = true;
         return;
       }
       var cid = '';
-      var existClaim = null;
-      if (typeof claimOrId === 'string') {
-        cid = claimOrId;
-        existClaim = claims.find(function (c) { return (c.claimId || c.claim_id) === cid; });
-      } else if (claimOrId && typeof claimOrId === 'object') {
-        existClaim = claimOrId;
-        cid = claimOrId.claimId || claimOrId.claim_id || '';
-      }
+      if (typeof claimOrId === 'string') { cid = claimOrId; }
+      else if (claimOrId && typeof claimOrId === 'object') { cid = claimOrId.claimId || claimOrId.claim_id || ''; }
+      if (!cid) return;
       calcDialog.claimId      = cid;
-      calcDialog.claimType    = existClaim ? (existClaim.claimTypeCd || existClaim.claim_type_cd || '') : '';
+      calcDialog.claimType    = (claimOrId && typeof claimOrId === 'object') ? fnClaimTypeKey(claimOrId) : '';
       calcDialog.previewItems = [];
-      calcDialog.data         = null;
-      calcDialog.loading      = true;
       calcDialog.show         = true;
-      try {
-        /* 클레임 상세(claimItems 포함)가 이미 있으면 재사용, 없으면 API 조회 */
-        var claimData = existClaim;
-        if (!claimData || !(claimData.claimItems && claimData.claimItems.length)) {
-          var cr = await boApiSvc.odClaim.getById(cid, '주문칸반', '계산조회');
-          claimData = (cr.data && cr.data.data) || cr.data || {};
-        }
-        /* 주문 정보가 없으면 로드 */
-        if (!order.orderId && !order.order_id) { await handleLoadOrder(); }
-        var calc = fnCalcClaimAmt(claimData);
-        calcDialog.data      = { claim: claimData, calc: calc };
-        calcDialog.claimType = claimData.claimTypeCd || claimData.claim_type_cd || calcDialog.claimType;
-      } catch (e) {
-        toast('계산 정보를 불러오는 중 오류가 발생했습니다.', 'error', 0);
-        calcDialog.show = false;
-      } finally {
-        calcDialog.loading = false;
-      }
     };
     const handleCloseCalcDialog = function () { calcDialog.show = false; };
 
@@ -894,53 +829,26 @@ window.OdOrderKanban = {
     const handleChangeClaimStatus = async (claim, toKey) => {
       if (cfReadonly.value) return;
       const flow = fnClaimFlow(claim);
-      const toStep = flow.find(function (s) { return s.key === toKey; });
 
-      /* 교환 배송 전용 스텝 (DLIV_*) → od_dliv 배송 상태 변경 */
-      if (toStep && toStep.dlivOnly) {
-        const dlivStatusCd = claim.exchangeDlivStatusCd || claim.exchange_dliv_status_cd
-          || claim.dlivStatusCd || claim.dliv_status_cd || '';
-        if (dlivStatusCd === toStep.dlivKey) return;
-        const fromLabel = dlivStatusCd || '(이전 상태)';
-        /* DLIV_IN_TRANSIT(배송중) 진입 시 재배송 택배사/송장번호 필수 */
-        const needExchDliv = toStep.dlivKey === 'IN_TRANSIT';
-        const exchDlgOpts = needExchDliv ? { dlivFields: [
-          { key: 'exchangeCourierCd',  label: '재배송 택배사',  required: true, isCourier: true, value: claim.exchangeCourierCd  || '' },
-          { key: 'exchangeTrackingNo', label: '재배송 송장번호', required: true, value: claim.exchangeTrackingNo || '' },
-        ]} : {};
-        const dlg = await doConfirmWithMemo('교환 배송 상태 변경', '"' + fromLabel + '" → "' + toStep.label + '" 으로 변경', exchDlgOpts);
-        if (!dlg.ok) return;
-        try {
-          const cid = claim.claimId || claim.claim_id;
-          const body = { claimId: cid, dlivStatusCd: toStep.dlivKey, memo: dlg.memo || null, rowStatus: 'U' };
-          if (needExchDliv) {
-            body.exchangeCourierCd  = dlg.exchangeCourierCd;
-            body.exchangeTrackingNo = dlg.exchangeTrackingNo;
-          }
-          await apiInst.value.post('/bo/ec/od/claim/save/exchange-dliv-status', body, coUtil.cofApiHdr('주문칸반', '교환배송상태변경'));
-          if (Object.prototype.hasOwnProperty.call(claim, 'exchangeDlivStatusCd')) claim.exchangeDlivStatusCd = toStep.dlivKey;
-          else claim.exchange_dliv_status_cd = toStep.dlivKey;
-          if (needExchDliv) {
-            claim.exchangeCourierCd  = dlg.exchangeCourierCd;
-            claim.exchangeTrackingNo = dlg.exchangeTrackingNo;
-          }
-          toast(toStep.label + '으로 변경되었습니다.', 'success');
-        } catch (e) {
-          toast((e.response && e.response.data && e.response.data.message) || e.message || '배송 상태 변경 중 오류가 발생했습니다.', 'error', 0);
-        }
-        return;
-      }
-
-      /* 일반 클레임 상태 변경 */
+      /* 2026-10-03 클레임/부분환불 계약(od.13.impl) — 모든 전이는 save/status 하나로.
+         (존재하지 않던 save/exchange-dliv-status 와 DLIV_* 가상 단계 제거) */
       const fromKey   = claim.claimStatusCd || claim.claim_status_cd || '';
       if (fromKey === toKey) return;
+      if (FINAL_CLAIM_STATUSES.indexOf(fromKey) >= 0) { toast('종결(완료/반려/철회)된 클레임은 상태를 변경할 수 없습니다.', 'error'); return; }
       const fromLabel = fnStepLabel(flow, fromKey);
       const toLabel   = fnStepLabel(flow, toKey);
       const typeLabel = fnClaimTypeLabel(claim);
       const claimType = fnClaimTypeKey(claim);
+      /* 뒤로 가기 금지(§1) — 흐름 내 인덱스가 작아지는 이동은 클라이언트에서 먼저 막는다 (REJECTED/CANCELLED 는 어디서든 가능) */
+      const mainFlow = flow.filter(function (s) { return s.key !== 'REJECTED' && s.key !== 'CANCELLED'; }).map(function (s) { return s.key; });
+      if (toKey !== 'REJECTED' && toKey !== 'CANCELLED' && mainFlow.indexOf(fromKey) >= 0 && mainFlow.indexOf(toKey) >= 0
+          && mainFlow.indexOf(toKey) < mainFlow.indexOf(fromKey)) {
+        toast('클레임 상태는 앞으로만 이동할 수 있습니다. (' + fromLabel + ' → ' + toLabel + ' 불가)', 'error'); return;
+      }
       /*
        * 택배사/송장번호 필드 구성:
-       * - RETURN/EXCHANGE + APPROVED→IN_PICKUP : 반품 수거 택배사 + 송장번호 (필수)
+       * - RETURN/EXCHANGE + →IN_PICKUP : 반품 수거 택배사 + 송장번호 (필수)
+       * - EXCHANGE + →COMPLT           : 재배송 택배사 + 송장번호 (선택)
        * 나머지는 필드 없음 (메모만)
        */
       var dlgFields = [];
@@ -950,24 +858,35 @@ window.OdOrderKanban = {
           { key: 'returnTrackingNo', label: '반품 수거 송장번호', required: true, value: claim.returnTrackingNo || '' },
         ];
       }
+      if (toKey === 'COMPLT' && claimType === 'EXCHANGE') {
+        dlgFields = [
+          { key: 'exchangeCourierCd',  label: '재배송 택배사 (선택)',  required: false, isCourier: true, value: claim.exchangeCourierCd  || '' },
+          { key: 'exchangeTrackingNo', label: '재배송 송장번호 (선택)', required: false, value: claim.exchangeTrackingNo || '' },
+        ];
+      }
+      var desc = '"' + fromLabel + '" → "' + toLabel + '" 으로 변경';
+      if (toKey === 'COMPLT') {
+        desc += '\n⚠ 완료(환불 실행): 재고 복구' + (claimType === 'EXCHANGE' ? '·교환 SKU 출고' : '') + ', 주문항목/주문 갱신, 환불('
+          + (claim.refundAmt != null ? Number(claim.refundAmt || 0).toLocaleString() + '원' : '서버 계산액') + ' · PG 취소/캐시 복원)이 실행되며 되돌릴 수 없습니다. PG 실패 시 전체 롤백.';
+      } else if (toKey === 'REJECTED') {
+        desc += ' (운영자 반려 — 재고·환불 변동 없음)';
+      } else if (toKey === 'CANCELLED') {
+        desc += ' (고객 철회 — 재고·환불 변동 없음)';
+      }
       const claimDlgOpts = dlgFields.length ? { dlivFields: dlgFields } : {};
-      const dlg = await doConfirmWithMemo(typeLabel + ' 상태 변경', '"' + fromLabel + '" → "' + toLabel + '" 으로 변경', claimDlgOpts);
+      const dlg = await doConfirmWithMemo(typeLabel + ' 상태 변경' + (toKey === 'COMPLT' ? ' — 완료(환불 실행)' : ''), desc, claimDlgOpts);
       if (!dlg.ok) return;
       try {
         const cid = claim.claimId || claim.claim_id;
         const body = { claimId: cid, claimStatusCd: toKey, memo: dlg.memo || null, rowStatus: 'U' };
-        if (dlgFields.length) {
-          body.returnCourierCd  = dlg.returnCourierCd;
-          body.returnTrackingNo = dlg.returnTrackingNo;
-        }
+        dlgFields.forEach(function (f) { if (dlg[f.key]) body[f.key] = dlg[f.key]; });
         await apiInst.value.post('/bo/ec/od/claim/save/status', body, coUtil.cofApiHdr('주문칸반', '클레임상태변경'));
         if (Object.prototype.hasOwnProperty.call(claim, 'claimStatusCd')) claim.claimStatusCd = toKey;
         else claim.claim_status_cd = toKey;
-        if (dlgFields.length) {
-          claim.returnCourierCd  = dlg.returnCourierCd;
-          claim.returnTrackingNo = dlg.returnTrackingNo;
-        }
+        dlgFields.forEach(function (f) { if (dlg[f.key]) claim[f.key] = dlg[f.key]; });
         toast(toLabel + '으로 변경되었습니다.', 'success');
+        /* COMPLT 는 서버가 주문항목/주문/환불을 함께 바꾼다 → 보드 전체 재조회 */
+        if (toKey === 'COMPLT') { await handleLoadOrder(); }
       } catch (e) {
         toast((e.response && e.response.data && e.response.data.message) || e.message || '클레임 상태 변경 중 오류가 발생했습니다.', 'error', 0);
       }
@@ -1317,12 +1236,13 @@ window.OdOrderKanban = {
       var st = item.orderItemStatusCd || item.order_item_status_cd || '';
       var locked = fnSettleLockState(item.orderItemId || item.order_item_id) === 'blocked';
       if (locked) return [];
+      /* 2026-10-03 클레임/부분환불 계약(od.13.impl) — '취소' 는 항목 상태 패치가 아니라 CANCEL 클레임 생성(handleCreateClaim) */
       var MAP = {
-        ORDERED:   [{ key: 'CANCELLED', label: '취소',      cls: 'act-danger',  side: 'left'  },
+        ORDERED:   [{ key: 'CANCELLED', label: '취소 클레임', cls: 'act-danger',  side: 'left'  },
                     { key: 'PAID',      label: '결제확인', cls: 'act-forward', side: 'right' }],
-        PAID:      [{ key: 'CANCELLED', label: '취소',      cls: 'act-danger',  side: 'left'  },
+        PAID:      [{ key: 'CANCELLED', label: '취소 클레임', cls: 'act-danger',  side: 'left'  },
                     { key: 'PREPARING', label: '준비시작', cls: 'act-forward', side: 'right' }],
-        PREPARING: [{ key: 'CANCELLED', label: '취소',      cls: 'act-danger',  side: 'left'  },
+        PREPARING: [{ key: 'CANCELLED', label: '취소 클레임', cls: 'act-danger',  side: 'left'  },
                     { key: 'SHIPPING',  label: '배송처리', cls: 'act-forward', side: 'right' }],
         SHIPPING:  [{ key: 'DELIVERED', label: '배송완료', cls: 'act-forward', side: 'right' }],
         DELIVERED: [{ key: 'NEW_RETURN',   label: '반품',   cls: 'act-claim-return',   side: 'left'  },
@@ -1332,52 +1252,40 @@ window.OdOrderKanban = {
       return MAP[st] || [];
     };
 
-    /* 클레임 현재 상태 → 다음 가능한 버튼 목록 */
+    /* 클레임 현재 상태 → 다음 가능한 버튼 목록
+     *  2026-10-03 클레임/부분환불 계약(od.13.impl) §1 — 앞으로만(다음 단계), 종결 전엔 반려(REJECTED)/철회(CANCELLED). 뒤로 가기 버튼 제거.
+     *  완료 버튼 문구 "완료(환불 실행)". 교환 2행(DLIV_*) 은 제거되어 IN_PICKUP → COMPLT 로 바로 간다. */
     const fnClaimActions = function (claim) {
       var tk  = fnClaimTypeKey(claim);
       var st  = claim.claimStatusCd || claim.claim_status_cd || '';
-      var dst = claim.exchangeDlivStatusCd || claim.exchange_dliv_status_cd
-              || claim.dlivStatusCd || claim.dliv_status_cd || '';
+      if (FINAL_CLAIM_STATUSES.indexOf(st) >= 0) return [];
+      var REJECT   = { key: 'REJECTED',  label: '반려',   cls: 'act-danger', side: 'left' };
+      var WITHDRAW = { key: 'CANCELLED', label: '철회',   cls: 'act-back',   side: 'left' };
+      var COMPLT_L = '완료(환불 실행)';
       if (tk === 'CANCEL') {
         var MAP_C = {
-          REQUESTED: [{ key: 'APPROVED',  label: '취소승인', cls: 'act-forward', side: 'right' },
-                      { key: 'CANCELLED', label: '거절',      cls: 'act-danger',  side: 'left'  }],
-          APPROVED:  [{ key: 'COMPLT',    label: '취소완료', cls: 'act-forward', side: 'right' }],
+          REQUESTED: [REJECT, WITHDRAW, { key: 'APPROVED', label: '취소승인', cls: 'act-forward', side: 'right' }],
+          APPROVED:  [REJECT, WITHDRAW, { key: 'COMPLT',   label: COMPLT_L,   cls: 'act-forward', side: 'right' }],
         };
         return MAP_C[st] || [];
       }
       if (tk === 'RETURN') {
         var MAP_R = {
-          REQUESTED:   [{ key: 'APPROVED',    label: '수거예약',   cls: 'act-forward', side: 'right' },
-                        { key: 'CANCELLED',   label: '거절',        cls: 'act-danger',  side: 'left'  }],
-          APPROVED:    [{ key: 'IN_PICKUP',   label: '수거시작',   cls: 'act-forward', side: 'right' },
-                        { key: 'REQUESTED',   label: '요청으로', cls: 'act-back',    side: 'left'  }],
-          IN_PICKUP:   [{ key: 'PROCESSING',  label: '입고완료',   cls: 'act-forward', side: 'right' },
-                        { key: 'APPROVED',    label: '수거예정', cls: 'act-back',    side: 'left'  }],
-          PROCESSING:  [{ key: 'REFUND_WAIT', label: '검수완료',   cls: 'act-forward', side: 'right' },
-                        { key: 'CANCELLED',   label: '검수불합격',  cls: 'act-danger',  side: 'left'  }],
-          REFUND_WAIT: [{ key: 'COMPLT',      label: '환불처리',   cls: 'act-forward', side: 'right' },
-                        { key: 'PROCESSING',  label: '검수중',   cls: 'act-back',    side: 'left'  }],
+          REQUESTED:   [REJECT, WITHDRAW, { key: 'APPROVED',    label: '수거예약', cls: 'act-forward', side: 'right' }],
+          APPROVED:    [REJECT, WITHDRAW, { key: 'IN_PICKUP',   label: '수거시작', cls: 'act-forward', side: 'right' }],
+          IN_PICKUP:   [REJECT, WITHDRAW, { key: 'PROCESSING',  label: '입고완료', cls: 'act-forward', side: 'right' }],
+          PROCESSING:  [REJECT, WITHDRAW, { key: 'REFUND_WAIT', label: '검수완료', cls: 'act-forward', side: 'right' }],
+          REFUND_WAIT: [REJECT, WITHDRAW, { key: 'COMPLT',      label: COMPLT_L,   cls: 'act-forward', side: 'right' }],
         };
         return MAP_R[st] || [];
       }
       if (tk === 'EXCHANGE') {
-        var MAP_E1 = {
-          REQUESTED: [{ key: 'APPROVED',   label: '수거예약',      cls: 'act-forward', side: 'right' },
-                      { key: 'CANCELLED',  label: '거절',           cls: 'act-danger',  side: 'left'  }],
-          APPROVED:  [{ key: 'IN_PICKUP',  label: '수거시작',      cls: 'act-forward', side: 'right' },
-                      { key: 'REQUESTED',  label: '요청으로',    cls: 'act-back',    side: 'left'  }],
-          IN_PICKUP: [{ key: 'DLIV_READY', label: '입고→배송준비', cls: 'act-forward', side: 'right' },
-                      { key: 'APPROVED',   label: '수거예정',    cls: 'act-back',    side: 'left'  }],
+        var MAP_E = {
+          REQUESTED: [REJECT, WITHDRAW, { key: 'APPROVED',  label: '수거예약', cls: 'act-forward', side: 'right' }],
+          APPROVED:  [REJECT, WITHDRAW, { key: 'IN_PICKUP', label: '수거시작', cls: 'act-forward', side: 'right' }],
+          IN_PICKUP: [REJECT, WITHDRAW, { key: 'COMPLT',    label: '교환완료(재고 교체)', cls: 'act-forward', side: 'right' }],
         };
-        var MAP_E2 = {
-          READY:      [{ key: 'DLIV_IN_TRANSIT', label: '배송시작', cls: 'act-forward', side: 'right' }],
-          IN_TRANSIT: [{ key: 'DLIV_DELIVERED',  label: '배송완료', cls: 'act-forward', side: 'right' },
-                       { key: 'DLIV_READY',      label: '배송준비', cls: 'act-back', side: 'left'  }],
-          DELIVERED:  [{ key: 'COMPLT',           label: '교환완료', cls: 'act-forward', side: 'right' },
-                       { key: 'DLIV_IN_TRANSIT',  label: '배송중', cls: 'act-back',   side: 'left'  }],
-        };
-        return (MAP_E1[st] || []).concat(MAP_E2[dst] || []);
+        return MAP_E[st] || [];
       }
       return [];
     };
@@ -1722,14 +1630,16 @@ window.OdOrderKanban = {
                 <button class="od-kanban-item-rows-all-btn" style="border-color:#059669;color:#059669;" @click="handleOpenCalcDialog('memo-preview')">💰 계산</button>
               </div>
             </div>
+            <!-- 2026-10-03 클레임/부분환불 계약(od.13.impl) — 남은수량(주문−취소) 상한, 교환이면 교환 SKU 입력 -->
             <table class="od-kanban-item-table">
               <thead><tr>
                 <th style="width:24px;"></th>
                 <th style="text-align:left;">상품명</th>
                 <th>옵션1</th>
                 <th>옵션2</th>
-                <th>수량</th>
+                <th>주문/남은</th>
                 <th>클레임수량</th>
+                <th v-if="memoDialog.claimType === 'EXCHANGE'">교환 SKU</th>
               </tr></thead>
               <tbody>
                 <tr v-for="(row, ri) in memoDialog.itemRows" :key="row.orderItemId || ri"
@@ -1740,15 +1650,20 @@ window.OdOrderKanban = {
                   <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" :title="row.prodNm">{{ row.prodNm }}</td>
                   <td style="text-align:center;">{{ row.optItemNm1 || '-' }}</td>
                   <td style="text-align:center;">{{ row.optItemNm2 || '-' }}</td>
-                  <td style="text-align:center;">{{ row.orderQty }}</td>
+                  <td style="text-align:center;">{{ row.orderQty }} / <b style="color:#c2410c;">{{ row.maxQty }}</b></td>
                   <td style="text-align:center;">
                     <input type="number" class="od-kanban-claim-qty-input"
-                      :value="row.claimQty" min="0" :max="row.orderQty"
+                      :value="row.claimQty" min="0" :max="row.maxQty"
                       @input="e => handleItemRowClaimQtyInput(row, e)" />
+                  </td>
+                  <td v-if="memoDialog.claimType === 'EXCHANGE'" style="text-align:center;">
+                    <input class="od-kanban-dliv-input" v-model="row.newProdSkuId" placeholder="같은 상품의 SKU ID"
+                      :disabled="row.claimQty <= 0" style="width:150px;font-family:monospace;font-size:11px;padding:2px 6px;" />
                   </td>
                 </tr>
               </tbody>
             </table>
+            <div style="font-size:10px;color:#9ca3af;margin-top:4px;padding:0 8px 4px;">※ 금액(쿠폰/캐시 비례 차감·배송비·반품배송비)은 서버가 계산합니다. 💰 계산 = /preview 미리보기, 확인 = /create 생성(상태 요청).</div>
           </div>
           <div v-if="memoDialog.dlivFields.length" class="od-kanban-dliv-section">
             <div class="od-kanban-dliv-section-title">🚚 배송 정보 입력</div>
