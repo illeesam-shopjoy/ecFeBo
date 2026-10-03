@@ -276,7 +276,7 @@ window.foAppFooter = {
         window.location.href = (window.pageUrl ? window.pageUrl('index.html') : 'index.html') + '?SITE_NO=' + target;
       } else if (root === 'foOnly') {
         /* target = FO 번호만, index.html 이동 */
-        const foSiteId = 'SITE' + String(target).padStart(6, '0');
+        const foSiteId = 'SI26' + String(target).padStart(4, '0'); // 2026-10-03: 예전 'SITE'+6자리(SITE000001)는 sy_site 에 없는 값이라 그 값으로 저장된 데이터가 생겼다 — 사이트 ID 규칙(SI260001)으로
         try {
           localStorage.setItem('modu-fo-sy-siteNo', target);
           localStorage.setItem('modu-fo-sy-siteId', foSiteId);
@@ -284,7 +284,7 @@ window.foAppFooter = {
         window.location.href = (window.pageUrl ? window.pageUrl('index.html') : 'index.html') + '?SITE_NO=' + target;
       } else if (root === 'boOnly') {
         /* target = BO 번호만, bo.html 새창 오픈 — URL 파라미터로 전달, FO localStorage 접근 금지 */
-        const boSiteId = 'SITE' + String(target).padStart(6, '0');
+        const boSiteId = 'SI26' + String(target).padStart(4, '0'); // 2026-10-03: 사이트 ID 규칙(SI260001) — 예전 SITE000001 형식 수정
         try {
           localStorage.setItem('modu-bo-sy-siteNo', target);
           localStorage.setItem('modu-bo-sy-siteId', boSiteId);
