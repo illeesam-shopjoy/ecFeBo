@@ -9,7 +9,7 @@ window.Login = {
 
     /* ##### [01] 초기 변수 정의 ################################################## */
 
-    const { ref, reactive, watch, onMounted } = Vue;
+    const { ref, reactive, computed, watch, onMounted } = Vue;   // 2026-10-03: computed 누락 — 로그인 화면 ReferenceError(cfPickModuleOptions)
 
     /* -- UI 상태 -- */
     const uiState = reactive({ snsPhoneVerified: false, loading: false, error: null, step: 'login', snsProvider: null, loginErr: '', signupErr: '', _ec: '', _pc: '', snsNickname: '', snsPhoneCode: '', snsPhoneCodeSent: false, _spc: '', snsErr: ''});;
