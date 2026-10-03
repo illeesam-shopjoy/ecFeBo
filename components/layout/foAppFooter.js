@@ -137,6 +137,8 @@ window.foAppFooter = {
       if (chatPollTimer) { return; }
       chatPollTimer = setInterval(async () => {
         if (!chatState.roomId || chatState.roomId === '_local' || !chatState.open) { return; }
+        // 2026-10-03 API오류로그 정비: 로그아웃(비로그인) 상태면 폴링을 멈춘다 — 3초마다 401 오류로그가 쌓이던 문제
+        if (!fnChatIsLoggedIn()) { fnStopChatPoll(); return; }
         try {
           const lastId = chatState.msgs.length > 0 ? chatState.msgs[chatState.msgs.length - 1].chattMsgId : null;
           const res = await foApiSvc.myChat.getMessages(chatState.roomId, { afterMsgId: lastId }, '채팅상담', '폴링');
@@ -147,6 +149,8 @@ window.foAppFooter = {
           }
         } catch (err) {
           console.warn('[chatPoll]', err.message);
+          // 2026-10-03 API오류로그 정비: 401(토큰 갱신까지 실패)이면 폴링 중지
+          if (err?.response?.status === 401) { fnStopChatPoll(); }
         }
       }, 3000);
     };

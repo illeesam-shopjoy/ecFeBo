@@ -227,11 +227,23 @@
         _shakeTimer = setTimeout(() => { uiState.shaking = false; _shakeTimer = null; }, 2000);
       });
 
+      /* fnHasToken — 2026-10-03 API오류로그 정비: 이 컨텍스트(FO/BO)의 로그인 토큰이 있을 때만 서버 조회한다
+         (비로그인·세션만료 상태에서도 60초마다 조회해 401 오류로그가 계속 쌓이던 문제) */
+      const fnHasToken = () => {
+        try {
+          return !!localStorage.getItem(props.ctx === 'fo' ? 'modu-fo-auth-accessToken' : 'modu-bo-auth-accessToken');
+        } catch (_) { return false; }
+      };
+
       onMounted(() => {
         document.addEventListener('click', fnOutsideClick);
-        store.fnLoadServer();
-        /* 다른 사람이 보낸 알림을 받으려면 주기 조회가 필요하다 (푸시 채널 없음) */
-        _pollTimer = setInterval(() => store.fnLoadServer(), 60000);
+        if (fnHasToken()) { store.fnLoadServer(); }
+        /* 다른 사람이 보낸 알림을 받으려면 주기 조회가 필요하다 (푸시 채널 없음)
+           2026-10-03 API오류로그 정비: 탭이 안 보이거나 토큰이 없으면 이번 회차는 건너뛴다 */
+        _pollTimer = setInterval(() => {
+          if (document.visibilityState !== 'visible' || !fnHasToken()) { return; }
+          store.fnLoadServer();
+        }, 60000);
       });
       onBeforeUnmount(() => {
         document.removeEventListener('click', fnOutsideClick);

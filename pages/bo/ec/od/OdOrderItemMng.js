@@ -647,10 +647,24 @@ window.OdOrderItemMng = {
         tdStyle: () => 'text-align:left;padding:4px 6px;vertical-align:middle;',
         slot: true },
 
+      /* ── 🏪 사이트 / 판매자 (2026-10-03 BO 멀티테넌트) ─────────────────────────
+         bo-group-table 은 fmt(row, idx) 로 부른다 — 공통 boUtil.bofSellerCol() 은 bo-grid 용 fmt(v, row) 라
+         여기 그대로 넣으면 행 전체가 JSON 으로 찍혔다(2026-10-03 "이화면이상하네"). 이 표 규약으로 직접 정의하고,
+         고정(pin:right) 작업 컬럼보다 앞에 둔다. */
+      { key: 'siteNm', label: '사이트', colGroup: '🏪 판매', width: 84,
+        colGroupBg: '#eff6ff', colGroupColor: '#1d4ed8', colGroupBorderColor: '#bfdbfe',
+        thBg: '#eff6ff', thColor: '#1d4ed8',
+        tdStyle: () => 'text-align:center;padding:1px 4px;font-size:11px;color:#2563eb;',
+        titleFmt: (row) => row.siteId || row.regSiteId || '',
+        fmt: (row) => row.siteNm || window.boUtil.bofSiteNmOf(row.siteId || row.regSiteId) || '-' },
+      { key: 'sellerNm', label: '판매자', colGroup: '🏪 판매', width: 96,
+        thBg: '#eff6ff', thColor: '#1d4ed8',
+        tdStyle: () => 'text-align:left;padding:1px 6px;font-size:11px;',
+        titleFmt: (row) => row.sellerId || '플랫폼 직영',
+        fmt: (row) => row.sellerNm || (row.sellerId ? window.boUtil.bofSellerNmOf(row.sellerId) : '플랫폼') },
+
       /* ── Fixed action ────────────────────────────────────────────────── */
       { key: '_actions', label: '작업', width: 56, align: 'center', slot: true, pin: 'right' },
-          { key: 'siteNm', label: '사이트' },
-      window.boUtil.bofSellerCol(),   // 2026-10-03 BO 멀티테넌트: 사이트/판매자 조건·컬럼
     ];
 
     columns.baseSearch = [

@@ -202,8 +202,10 @@ window.SlSellerDtl = {
       { key: 'sellerTypeCd',   label: '판매자유형', type: 'select', nullable: false, required: true,
         options: () => codes.seller_type_cd },
       { key: 'regSiteId',      label: '사이트', type: 'select', nullable: false, required: true, visible: () => cfIsNew.value,
-        options: () => siteOptions.map(s => ({ codeValue: s.value, codeLabel: s.label })) },
-      { key: 'regSiteNm',      label: '사이트', type: 'readonly', visible: () => !cfIsNew.value },
+        options: () => siteOptions.map(s => ({ codeValue: s.value, codeLabel: `${s.label} (${s.value})` })) },
+      /* 사이트명 + 사이트ID 함께 표시 (2026-10-03, 요청: "사이트Id 도 표시해줘") */
+      { key: 'regSiteNm',      label: '사이트', type: 'readonly', visible: () => !cfIsNew.value,
+        fmt: (v, f) => (v || '-') + (f.regSiteId ? ` (${f.regSiteId})` : ' (사이트ID 없음)') },
       // 2행: 상태(1) + 연결업체(2, 사업자형 전용)
       { key: 'sellerStatusCd', label: '상태', type: 'select', nullable: false,
         options: () => codes.seller_status_cd },

@@ -311,6 +311,7 @@ window.SlSellerMng = {
       { key: 'sellerNm',      label: '판매자명', sortKey: 'nm', link: true,
         cellInnerStyle: (v) => detailPanel.selectedId === v ? 'color:#e8587a;font-weight:700;' : '' },
       window.boUtil.bofSiteCol(),   // 2026-10-03: 판매자의 사이트(등록 사이트명) — 판매자와 사이트는 1:1
+      window.boUtil.bofSiteIdCol(), // 2026-10-03: 사이트ID(SI2600xx) 도 함께 표시
       { key: 'sellerTypeCd',    label: '유형', badge: (row) => fnTypeBadge(row.sellerTypeCd), fmt: (v) => fnTypeLabel(v) },
       { key: 'sellerStatusCd', label: '상태', badge: (row) => fnStatusBadge(row.sellerStatusCd), fmt: (v) => fnStatusLabel(v) },
       { key: 'emailVerifiedYn', label: '이메일인증', align: 'center', fmt: (v) => v === 'Y' ? '인증' : '미인증' },
