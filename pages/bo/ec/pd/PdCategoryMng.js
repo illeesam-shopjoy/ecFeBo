@@ -201,7 +201,7 @@ window.PdCategoryMng = {
       Object.assign(searchParam, { siteId: (window.boCommonFilter && window.boCommonFilter.siteId)
               || window.sfGetBoAppStore?.()?.svBoSiteId
               || (window._boCmSites?.[0]?.siteId)
-              || '2604010000000001' });
+              || 'SI260001' });
       Object.assign(searchParamInit, searchParam);   // [초기화] 기준값 스냅샷
     };
     onMounted(initPage);

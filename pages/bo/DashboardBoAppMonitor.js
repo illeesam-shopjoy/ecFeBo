@@ -286,7 +286,7 @@ window.DashboardBoAppMonitor = {
       const e = ERR_TYPES[Math.floor(Math.random() * ERR_TYPES.length)];
       return { httpStatus: e.httpStatus, errorCode: e.errorCode, message: e.message, stackTrace: e.stackTrace };
     };
-    /* 사이트/구매자/라이선스/User-Agent/토큰 목업 — 실 프로젝트 X-Site-Id(2604010000000001 형식) 등과 동일 패턴 */
+    /* 사이트/구매자/라이선스/User-Agent/토큰 목업 — 실 프로젝트 X-Site-Id(SI260001 형식) 등과 동일 패턴 */
     const _hex = (n) => Math.floor(Math.random() * 16 ** n).toString(16).padStart(n, '0');
     const _buildPoint = (t) => {
       const rt = Math.random() < 0.75
